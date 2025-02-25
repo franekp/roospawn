@@ -28,6 +28,7 @@ export class Task {
             if (task_dozer) {
                 task_dozer._paused_tasks.push(this);
                 task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
+                task_dozer._tasks_updated.fire();
             }
         }
     }
@@ -42,6 +43,7 @@ export class Task {
             if (task_dozer) {
                 task_dozer._queued_tasks.push(this);
                 task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
+                task_dozer._tasks_updated.fire();
             }
         }
         if (this.status == 'completed') return;
@@ -57,6 +59,7 @@ export class Task {
             task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
             task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
             task_dozer._completed_tasks = task_dozer._completed_tasks.filter(t => t !== this);
+            task_dozer._tasks_updated.fire();
         }
     }
 
@@ -123,12 +126,14 @@ export class TaskDozer {
 
         // Set up renderer messaging
         const messageChannel = vscode.notebooks.createRendererMessaging('taskdozer-status-renderer');
-        this.tasks_updated(() => {
-            messageChannel.postMessage({
-                type: 'status_updated',
-                html: this.render_status_html()
-            });
-        });
+        this.extensionContext.subscriptions.push(
+            this.tasks_updated(async () => {
+                await messageChannel.postMessage({
+                    type: 'status_updated',
+                    html: this.render_status_html()
+                });
+            })
+        );
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {

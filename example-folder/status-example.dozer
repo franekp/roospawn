@@ -22,7 +22,7 @@
     },
     {
       "kind": "code",
-      "value": "# Complete the active task and show updated status\ntaskdozer.completeActiveTask()\ntaskdozer.status()",
+      "value": "# Complete the active task and show updated status\ntaskdozer.add_task('asdf')\n",
       "language": "python"
     },
     {

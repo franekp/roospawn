@@ -39,7 +39,8 @@
         "entrypoint": "./dist/renderer.js",
         "mimeTypes": [
           "application/x-taskdozer-status"
-        ]
+        ],
+        "requiresMessaging": "always"
       }
     ]
   },
