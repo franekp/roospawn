@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as path from 'path';
-import { TaskDozer, Task } from './task_dozer';
+import { TaskDozer, TaskDozerStatus } from './task_dozer';
 
 export class TaskDozerController {
     readonly controllerId = 'taskdozer-controller';
@@ -111,21 +111,26 @@ export class TaskDozerController {
 
             const result = await this._pyodide.runPythonAsync(code);
 
-            let output: string;
-            if (result !== undefined) {
-                try {
-                    output = this._pyodide.globals.get('str')(result).toString();
-                } catch {
-                    output = String(result);
+            if (result instanceof TaskDozerStatus) {
+                this._current_execution.appendOutputItems([ 
+                    vscode.NotebookCellOutputItem.json({html: result.html}, result.mime_type)
+                ], this._current_output!);
+            } else { 
+                let output: string;
+                if (result !== undefined) {
+                    try {
+                        output = this._pyodide.globals.get('str')(result).toString();
+                    } catch {
+                        output = String(result);
+                    }
+                } else {
+                    output = '';
                 }
-            } else {
-                output = '';
+                // Create output
+                this._current_execution.appendOutputItems([ 
+                    vscode.NotebookCellOutputItem.stdout(output + '\n')
+                ], this._current_output!);
             }
-            
-            // Create output
-            this._current_execution.appendOutputItems([ 
-                vscode.NotebookCellOutputItem.stdout(output + '\n')
-            ], this._current_output!);
             
             execution.end(true, Date.now());
             this._current_output = undefined;

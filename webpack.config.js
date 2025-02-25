@@ -60,8 +60,11 @@ const rendererConfig = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'renderer.js',
-    libraryTarget: 'module'
+    clean: true,
+    libraryTarget: 'module',
+    globalObject: 'window'
   },
+
   experiments: {
     outputModule: true
   },

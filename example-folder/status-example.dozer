@@ -1,46 +1,59 @@
-# TaskDozer Status Example
-
-This notebook demonstrates the TaskDozer status renderer.
-
-## Initial Status
-```python
-# Create some example tasks
-taskdozer.add_tasks([
-    "Task 1: Write documentation",
-    "Task 2: Implement feature",
-    "Task 3: Fix bug"
-], None, None)
-
-# Display current status
-taskdozer.status()
-```
-
-## Complete a Task
-```python
-# Complete the active task and show updated status
-taskdozer.completeActiveTask()
-taskdozer.status()
-```
-
-## Add More Tasks
-```python
-# Add more tasks and show updated status
-taskdozer.add_tasks([
-    "Task 4: Review code",
-    "Task 5: Deploy changes"
-], None, None)
-taskdozer.status()
-```
-
-## Pause Tasks
-```python
-# Pause all tasks and show updated status
-taskdozer.pauseAllTasks()
-taskdozer.status()
-```
-
-## Resume Tasks
-```python
-# Resume all tasks and show updated status
-taskdozer.resumeAllTasks()
-taskdozer.status()
+{
+  "cells": [
+    {
+      "kind": "markdown",
+      "value": "# TaskDozer Status Example\n\nThis notebook demonstrates the TaskDozer status renderer.",
+      "language": "markdown"
+    },
+    {
+      "kind": "markdown",
+      "value": "## Initial Status",
+      "language": "markdown"
+    },
+    {
+      "kind": "code",
+      "value": "import taskdozer\n\n# Create some example tasks\ntaskdozer.add_tasks([\n    \"Task 1: Write documentation\",\n    \"Task 2: Implement feature\",\n    \"Task 3: Fix bug\"\n], None, None)\n\n# Display current status\ntaskdozer.status()",
+      "language": "python"
+    },
+    {
+      "kind": "markdown",
+      "value": "## Complete a Task",
+      "language": "markdown"
+    },
+    {
+      "kind": "code",
+      "value": "# Complete the active task and show updated status\ntaskdozer.completeActiveTask()\ntaskdozer.status()",
+      "language": "python"
+    },
+    {
+      "kind": "markdown",
+      "value": "## Add More Tasks",
+      "language": "markdown"
+    },
+    {
+      "kind": "code",
+      "value": "# Add more tasks and show updated status\ntaskdozer.add_tasks([\n    \"Task 4: Review code\",\n    \"Task 5: Deploy changes\"\n], None, None)\ntaskdozer.status()",
+      "language": "python"
+    },
+    {
+      "kind": "markdown",
+      "value": "## Pause Tasks",
+      "language": "markdown"
+    },
+    {
+      "kind": "code",
+      "value": "# Pause all tasks and show updated status\ntaskdozer.pauseAllTasks()\ntaskdozer.status()",
+      "language": "python"
+    },
+    {
+      "kind": "markdown",
+      "value": "## Resume Tasks",
+      "language": "markdown"
+    },
+    {
+      "kind": "code",
+      "value": "# Resume all tasks and show updated status\ntaskdozer.resumeAllTasks()\ntaskdozer.status()",
+      "language": "python"
+    }
+  ]
+}

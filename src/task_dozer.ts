@@ -63,6 +63,11 @@ export class Task {
     remove() { this.delete(); }
 }
 
+export class TaskDozerStatus {
+    public mime_type = 'application/x-taskdozer-status';
+    constructor(public html: string) {}
+}
+
 let task_dozer: TaskDozer | undefined;
 
 export class TaskDozer {
@@ -136,7 +141,7 @@ export class TaskDozer {
     }
 
     add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
-        const result = tasks.map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
+        const result = [...tasks].map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
         this._tasks_updated.fire();
         return result;
     }
@@ -157,12 +162,8 @@ export class TaskDozer {
         return [...this._paused_tasks];
     }
 
-    status(): any {
-        return {
-            ["application/x-taskdozer-status"]: {
-                html: this.render_status_html()
-            }
-        };
+    status(): TaskDozerStatus {
+        return new TaskDozerStatus(this.render_status_html());
     }
 
     render_status_html(): string {
