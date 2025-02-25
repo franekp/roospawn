@@ -1,6 +1,6 @@
-# ai-todos README
+# TaskDozer README
 
-This is the README for your extension "ai-todos". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "TaskDozer". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 

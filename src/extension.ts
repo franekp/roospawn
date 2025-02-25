@@ -8,19 +8,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "ai-todos" is now active!');
+	console.log('Congratulations, your extension "taskdozer" is now active!');
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('ai-todos.helloWorld', async () => {
+	const disposable = vscode.commands.registerCommand('taskdozer.helloWorld', async () => {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
-		console.log('Hello World from AI TODOs!');
+		console.log('Hello World from TaskDozer!');
 
 		let ai_extension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
 		if (!ai_extension) {
-			throw new Error('ai-todos: roo-cline extension not found');
+			throw new Error('taskdozer: roo-cline extension not found');
 		}
 		let ai_api = ai_extension.exports;
 		await ai_api.startNewTask("Write a function that calculates factorial in TypeScript");

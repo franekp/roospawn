@@ -1,6 +1,6 @@
 {
-  "name": "ai-todos",
-  "displayName": "AI TODOs",
+  "name": "taskdozer",
+  "displayName": "TaskDozer",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -14,7 +14,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "ai-todos.helloWorld",
+        "command": "taskdozer.helloWorld",
         "title": "Hello World"
       }
     ]
