@@ -71,6 +71,18 @@ class TaskDozerController {
         this._controller.executeHandler = this._execute.bind(this);
     }
 
+    send_task(task: string) {
+        this._outputChannel.appendLine(`Sending task: ${task}`);
+    }
+
+    send_tasks(tasks: string[]) {
+        this._outputChannel.appendLine(`Sending tasks: ${tasks.join(', ')}`);
+    }
+
+    list_tasks() {
+        return ['a', 'b', 'c'];
+    }
+
     private async _initializePyodide() {
         if (this._pyodide) {
             return;
@@ -94,13 +106,19 @@ class TaskDozerController {
             });
 
             // Load micropip for package management
-            await this._pyodide.loadPackage('micropip');
+            // await this._pyodide.loadPackage('micropip');
             
             // Initialize Python environment with common packages
-            await this._pyodide.runPythonAsync(`
-                import micropip
-                await micropip.install(['numpy', 'pandas'])
-            `);
+            //await this._pyodide.runPythonAsync(`
+            //    import micropip
+            //    await micropip.install(['numpy', 'pandas'])
+            //`);
+
+            this._pyodide.registerJsModule('taskdozer', {
+                send_task: this.send_task.bind(this),
+                send_tasks: this.send_tasks.bind(this),
+                list_tasks: this.list_tasks.bind(this),
+            });
 
             this._outputChannel.appendLine('Pyodide initialized successfully with required packages');
         } catch (error) {

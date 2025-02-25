@@ -11,6 +11,16 @@
       "language": "python"
     },
     {
+      "kind": "code",
+      "value": "from taskdozer import send_task, list_tasks\n\nsend_task(\"Hello, world!\")",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "type(list_tasks())",
+      "language": "python"
+    },
+    {
       "kind": "markdown",
       "value": "Let's try some basic data manipulation with pandas:",
       "language": "markdown"
