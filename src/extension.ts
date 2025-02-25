@@ -55,7 +55,10 @@ class TaskDozerController {
     private _pyodide: PyodideInterface | undefined;
     private _executionOrder = 0;
 
-    constructor(private readonly extensionContext: vscode.ExtensionContext) {
+    constructor(
+        private readonly extensionContext: vscode.ExtensionContext,
+        private readonly _outputChannel: vscode.OutputChannel
+    ) {
         this._controller = vscode.notebooks.createNotebookController(
             this.controllerId,
             this.notebookType,
@@ -79,10 +82,10 @@ class TaskDozerController {
             this._pyodide = await loadPyodide({
                 indexURL: pyodidePath,
                 stdout: (text) => {
-                    console.log('[Pyodide stdout]:', text);
+                    this._outputChannel.appendLine(`[Pyodide stdout]: ${text}`);
                 },
                 stderr: (text) => {
-                    console.error('[Pyodide stderr]:', text);
+                    this._outputChannel.appendLine(`[Pyodide stderr]: ${text}`);
                 }
             });
 
@@ -95,9 +98,9 @@ class TaskDozerController {
                 await micropip.install(['numpy', 'pandas'])
             `);
 
-            console.log('Pyodide initialized successfully with required packages');
+            this._outputChannel.appendLine('Pyodide initialized successfully with required packages');
         } catch (error) {
-            console.error('Failed to initialize Pyodide:', error);
+            this._outputChannel.appendLine(`Failed to initialize Pyodide: ${error}`);
             throw error;
         }
     }
@@ -162,24 +165,27 @@ class TaskDozerController {
 
     dispose() {
         this._controller.dispose();
+        this._outputChannel.dispose();
     }
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('TaskDozer extension is now active!');
+    const outputChannel = vscode.window.createOutputChannel('Task Dozer');
+    outputChannel.appendLine('TaskDozer extension is now active!');
 
     // Register notebook serializer
     context.subscriptions.push(
-        vscode.workspace.registerNotebookSerializer('taskdozer', new TaskDozerSerializer())
+        vscode.workspace.registerNotebookSerializer('taskdozer', new TaskDozerSerializer()),
+        outputChannel
     );
 
     // Create and register the notebook controller
-    const controller = new TaskDozerController(context);
+    const controller = new TaskDozerController(context, outputChannel);
     context.subscriptions.push(controller);
 
     // Register hello world command
     const disposable = vscode.commands.registerCommand('taskdozer.helloWorld', async () => {
-        console.log('Hello World from TaskDozer!');
+        outputChannel.appendLine('Hello World from TaskDozer!');
         vscode.window.showInformationMessage('Hello World from TaskDozer!');
 
         let ai_extension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
@@ -189,7 +195,7 @@ export async function activate(context: vscode.ExtensionContext) {
         let ai_api = ai_extension.exports;
         await ai_api.startNewTask("Write a function that calculates factorial in TypeScript");
         
-        console.log('Run the query!');
+        outputChannel.appendLine('Run the query!');
     });
 
     context.subscriptions.push(disposable);
