@@ -4,7 +4,7 @@
   "description": "",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.97.0"
+    "vscode": "^1.88.0"
   },
   "categories": [
     "Other"
@@ -17,7 +17,7 @@
     "commands": [
       {
         "command": "taskdozer.helloWorld",
-        "title": "Hello World"
+        "title": "TaskDozer: Hello World"
       }
     ],
     "notebooks": [
@@ -44,7 +44,12 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "yarn compile-tests && yarn compile && yarn lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "download-pyodide": "node scripts/download-pyodide.js",
+    "postinstall": "yarn download-pyodide"
+  },
+  "dependencies": {
+    "pyodide": "^0.23.0"
   },
   "devDependencies": {
     "@types/vscode": "^1.97.0",
@@ -60,8 +65,9 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1"
   },
-  "enabledApiProposals": [
-    "extensionRuntime"
-  ],
-  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
+  "files": [
+    "dist",
+    "resources"
+  ]
 }
