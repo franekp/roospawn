@@ -71,6 +71,9 @@ export class TaskDozer {
     _completed_tasks: Task[] = [];
     _paused_tasks: Task[] = [];
 
+    _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    tasks_updated: vscode.Event<void> = this._tasks_updated.event;
+
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         private readonly outputChannel: vscode.OutputChannel
@@ -114,14 +117,19 @@ export class TaskDozer {
         );
     }
 
-    add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined): Task {
+    add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
         const task = new Task(prompt, cmd_before, cmd_after);
         this._queued_tasks.push(task);
+        if (fire_event) {
+            this._tasks_updated.fire();
+        }
         return task;
     }
 
     add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
-        return tasks.map(prompt => this.add_task(prompt, cmd_before, cmd_after));
+        const result = tasks.map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
+        this._tasks_updated.fire();
+        return result;
     }
 
     queued_tasks(): Task[] {
@@ -138,5 +146,65 @@ export class TaskDozer {
 
     paused_tasks(): Task[] {
         return [...this._paused_tasks];
+    }
+
+    render_status_html(): string {
+        const styles = `
+            <style>
+                .task-container { font-family: system-ui; margin: 4px 0; }
+                .task { padding: 4px 8px; border-radius: 4px; }
+                .task-id { font-size: 0.8em; opacity: 0.7; }
+                .task-prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; display: inline-block; }
+                .active { 
+                    background: linear-gradient(270deg, #ff9933, #ffb366);
+                    background-size: 200% 100%;
+                    color: white;
+                    animation: gradient 2s ease infinite;
+                }
+                @keyframes gradient {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
+                .queued { background: #ffff00; color: black; }
+                .completed { background: #008080; color: white; }
+                .paused { background: #808080; color: white; }
+            </style>
+        `;
+
+        const renderTask = (task: Task, status: string) => {
+            return `
+                <div class="task-container">
+                    <div class="task ${status}">
+                        <span class="task-id">#${task.id}</span>
+                        <span class="task-prompt">${task.prompt}</span>
+                    </div>
+                </div>
+            `;
+        };
+
+        const sections = [];
+
+        // Active task
+        if (this._active_task) {
+            sections.push(renderTask(this._active_task, 'active'));
+        }
+
+        // Queued tasks
+        this._queued_tasks.forEach(task => {
+            sections.push(renderTask(task, 'queued'));
+        });
+
+        // Completed tasks
+        this._completed_tasks.forEach(task => {
+            sections.push(renderTask(task, 'completed'));
+        });
+
+        // Paused tasks
+        this._paused_tasks.forEach(task => {
+            sections.push(renderTask(task, 'paused'));
+        });
+
+        return styles + sections.join('');
     }
 }
