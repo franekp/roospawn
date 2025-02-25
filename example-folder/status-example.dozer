@@ -2,57 +2,22 @@
   "cells": [
     {
       "kind": "markdown",
-      "value": "# TaskDozer Status Example\n\nThis notebook demonstrates the TaskDozer status renderer.",
-      "language": "markdown"
-    },
-    {
-      "kind": "markdown",
-      "value": "## Initial Status",
+      "value": "# TaskDozer\n\n### Basic usage\n\nUse `td.add_tasks()` or `td.add_task()` to spawn new tasks. Keep one cell with `td.status()` to observe live preview of the queue.",
       "language": "markdown"
     },
     {
       "kind": "code",
-      "value": "import taskdozer\n\n# Create some example tasks\ntaskdozer.add_tasks([\n    \"Task 1: Write documentation\",\n    \"Task 2: Implement feature\",\n    \"Task 3: Fix bug\"\n], None, None)\n\n# Display current status\ntaskdozer.status()",
+      "value": "import taskdozer as td\n\n# Create some example tasks\ntd.add_tasks([\n    \"Create a file named foo.py, implement a function named foo that returns 42\",\n    \"Create a file named bar.py, implement a function named bar that returns 43\",\n    \"Create a file named baz.py, implement a function named baz that returns 44\"\n], None, None)\n\n# Display current status\ntd.status()",
       "language": "python"
     },
     {
       "kind": "markdown",
-      "value": "## Complete a Task",
+      "value": "### Adding tasks later\n\nYou can use `td.add_task()` while other tasks are already running. New tasks are added to the end of the queue.",
       "language": "markdown"
     },
     {
       "kind": "code",
-      "value": "# Complete the active task and show updated status\ntaskdozer.add_task('asdf')\n",
-      "language": "python"
-    },
-    {
-      "kind": "markdown",
-      "value": "## Add More Tasks",
-      "language": "markdown"
-    },
-    {
-      "kind": "code",
-      "value": "# Add more tasks and show updated status\ntaskdozer.add_tasks([\n    \"Task 4: Review code\",\n    \"Task 5: Deploy changes\"\n], None, None)\ntaskdozer.status()",
-      "language": "python"
-    },
-    {
-      "kind": "markdown",
-      "value": "## Pause Tasks",
-      "language": "markdown"
-    },
-    {
-      "kind": "code",
-      "value": "# Pause all tasks and show updated status\ntaskdozer.pauseAllTasks()\ntaskdozer.status()",
-      "language": "python"
-    },
-    {
-      "kind": "markdown",
-      "value": "## Resume Tasks",
-      "language": "markdown"
-    },
-    {
-      "kind": "code",
-      "value": "# Resume all tasks and show updated status\ntaskdozer.resumeAllTasks()\ntaskdozer.status()",
+      "value": "# Complete the active task and show updated status\ntd.add_task('What is the sum of foo and bar?')\n",
       "language": "python"
     }
   ]
