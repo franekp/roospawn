@@ -77,6 +77,41 @@ export class TaskDozer {
     ) {
         this.outputChannel.appendLine('TaskDozer initialized');
         task_dozer = this;
+        // Register command to pause all tasks
+        extensionContext.subscriptions.push(
+            vscode.commands.registerCommand('taskdozer.pauseAllTasks', () => {
+                [...this._queued_tasks].forEach(task => task.pause());
+                this.outputChannel.appendLine('Paused all tasks');
+            })
+        );
+        // Register command to resume all tasks
+        extensionContext.subscriptions.push(
+            vscode.commands.registerCommand('taskdozer.resumeAllTasks', () => {
+                [...this._paused_tasks].forEach(task => task.resume());
+                this.outputChannel.appendLine('Resumed all tasks');
+            })
+        );
+        // Register command to complete active task and pick next
+        extensionContext.subscriptions.push(
+            vscode.commands.registerCommand('taskdozer.completeActiveTask', () => {
+                if (this._active_task) {
+                    this._active_task.status = 'completed';
+                    this._completed_tasks.push(this._active_task);
+                    this._active_task = undefined;
+
+                    // Pick next queued task if available
+                    if (this._queued_tasks.length > 0) {
+                        this._active_task = this._queued_tasks.shift();
+                        this._active_task!.status = 'active';
+                        this.outputChannel.appendLine(`Started task: ${this._active_task!.prompt}`);
+                    }
+
+                    this.outputChannel.appendLine('Completed active task');
+                } else {
+                    this.outputChannel.appendLine('No active task to complete');
+                }
+            })
+        );
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined): Task {
