@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as path from 'path';
+import { TaskDozer, Task } from './task_dozer';
 
 export class TaskDozerController {
     readonly controllerId = 'taskdozer-controller';
@@ -17,6 +18,8 @@ export class TaskDozerController {
     private _pyodide: PyodideInterface | undefined;
     private _executionOrder = 0;
 
+    private _taskDozer: TaskDozer;
+
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         private readonly _outputChannel: vscode.OutputChannel
@@ -30,18 +33,8 @@ export class TaskDozerController {
         this._controller.supportedLanguages = this.supportedLanguages;
         this._controller.supportsExecutionOrder = true;
         this._controller.executeHandler = this._execute.bind(this);
-    }
 
-    send_task(task: string) {
-        this._outputChannel.appendLine(`Sending task: ${task}`);
-    }
-
-    send_tasks(tasks: string[]) {
-        this._outputChannel.appendLine(`Sending tasks: ${tasks.join(', ')}`);
-    }
-
-    list_tasks() {
-        return ['a', 'b', 'c'];
+        this._taskDozer = new TaskDozer(extensionContext, _outputChannel);
     }
 
     private async _initializePyodide() {
@@ -55,7 +48,6 @@ export class TaskDozerController {
             delete process.env.PYTHONHOME;
             delete process.env.PYTHONPATH;
 
-            // Initialize Pyodide with the local indexURL
             this._pyodide = await loadPyodide({
                 indexURL: pyodidePath,
                 stdout: (text) => {
@@ -78,11 +70,7 @@ export class TaskDozerController {
                 }
             });
 
-            this._pyodide.registerJsModule('taskdozer', {
-                send_task: this.send_task.bind(this),
-                send_tasks: this.send_tasks.bind(this),
-                list_tasks: this.list_tasks.bind(this),
-            });
+            this._pyodide.registerJsModule('taskdozer', this._taskDozer);
 
             this._outputChannel.appendLine('Pyodide initialized successfully');
         } catch (error) {

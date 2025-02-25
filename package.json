@@ -49,9 +49,11 @@
     "postinstall": "yarn download-pyodide"
   },
   "dependencies": {
-    "pyodide": "0.23.4"
+    "pyodide": "0.23.4",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.97.0",
