@@ -10,6 +10,10 @@ class TaskDozerController {
     readonly label = 'TaskDozer Python';
     readonly supportedLanguages = ['python'];
 
+    private _stdout_stderr: vscode.NotebookCellOutputItem[] = [];
+    private _current_execution: vscode.NotebookCellExecution | undefined;
+    private _current_output: vscode.NotebookCellOutput | undefined;
+
     private readonly _controller: vscode.NotebookController;
     private _pyodide: PyodideInterface | undefined;
     private _executionOrder = 0;
@@ -57,20 +61,23 @@ class TaskDozerController {
                 indexURL: pyodidePath,
                 stdout: (text) => {
                     this._outputChannel.appendLine(`[Pyodide stdout]: ${text}`);
+                    this._stdout_stderr.push(vscode.NotebookCellOutputItem.stdout(text));
+                    if (this._current_execution) {
+                        this._current_execution.appendOutputItems([
+                            vscode.NotebookCellOutputItem.stdout(text + '\n')
+                        ], this._current_output!);
+                    }
                 },
                 stderr: (text) => {
                     this._outputChannel.appendLine(`[Pyodide stderr]: ${text}`);
+                    this._stdout_stderr.push(vscode.NotebookCellOutputItem.stderr(text));
+                    if (this._current_execution) {
+                        this._current_execution.appendOutputItems([
+                            vscode.NotebookCellOutputItem.stderr(text + '\n')
+                        ], this._current_output!);
+                    }
                 }
             });
-
-            // Load micropip for package management
-            // await this._pyodide.loadPackage('micropip');
-            
-            // Initialize Python environment with common packages
-            //await this._pyodide.runPythonAsync(`
-            //    import micropip
-            //    await micropip.install(['numpy', 'pandas'])
-            //`);
 
             this._pyodide.registerJsModule('taskdozer', {
                 send_task: this.send_task.bind(this),
@@ -78,7 +85,7 @@ class TaskDozerController {
                 list_tasks: this.list_tasks.bind(this),
             });
 
-            this._outputChannel.appendLine('Pyodide initialized successfully with required packages');
+            this._outputChannel.appendLine('Pyodide initialized successfully');
         } catch (error) {
             this._outputChannel.appendLine(`Failed to initialize Pyodide: ${JSON.stringify(error)}`);
             throw error;
@@ -100,6 +107,10 @@ class TaskDozerController {
         execution.executionOrder = ++this._executionOrder;
         execution.start(Date.now());
 
+        this._current_output = new vscode.NotebookCellOutput([]);
+        this._current_execution = execution;
+        execution.replaceOutput([this._current_output]);
+
         try {
             await this._initializePyodide();
             
@@ -107,10 +118,12 @@ class TaskDozerController {
                 throw new Error('Failed to initialize Pyodide');
             }
 
-            // Execute the Python code
-            const result = await this._pyodide.runPythonAsync(cell.document.getText());
-            
-            // Convert the result to a string representation
+            const code = cell.document.getText();
+
+            this._pyodide.loadPackagesFromImports(code);
+
+            const result = await this._pyodide.runPythonAsync(code);
+
             let output: string;
             if (result !== undefined) {
                 try {
@@ -123,26 +136,31 @@ class TaskDozerController {
             }
             
             // Create output
-            execution.replaceOutput([
-                new vscode.NotebookCellOutput([
-                    vscode.NotebookCellOutputItem.text(output)
-                ])
-            ]);
+            this._current_execution.appendOutputItems([ 
+                vscode.NotebookCellOutputItem.stdout(output + '\n')
+            ], this._current_output!);
             
             execution.end(true, Date.now());
+            this._current_output = undefined;
+            this._current_execution = undefined;
         } catch (error) {
             this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
             
             // Convert non-Error objects to Error objects
             const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
             
+            errorObject.stack = errorObject.stack?.split('\n').filter(
+                line => !(line.includes('at wasm://wasm/') || line.includes('resources/pyodide/pyodide.asm.js')
+                    || line.includes('node:internal/'))
+            ).join('\n');
+
             // Handle execution error
-            execution.replaceOutput([
-                new vscode.NotebookCellOutput([
-                    vscode.NotebookCellOutputItem.error(errorObject)
-                ])
-            ]);
+            execution.appendOutputItems([
+                vscode.NotebookCellOutputItem.error(errorObject)
+            ], this._current_output!);
             execution.end(false, Date.now());
+            this._current_output = undefined;
+            this._current_execution = undefined;
         }
     }
 

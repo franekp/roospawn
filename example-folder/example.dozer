@@ -7,7 +7,12 @@
     },
     {
       "kind": "code",
-      "value": "print(\"Hello, world!\")\n[1, 2, 3]",
+      "value": "print(\"Hello, world!\")\nprint(\"Blabla\")\n[1, 2, 3]",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "import taskdozer\nprint(type(taskdozer))",
       "language": "python"
     },
     {
@@ -28,6 +33,11 @@
     {
       "kind": "code",
       "value": "[i**2 for i in range(10)]",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "import pandas as pd\nrequests.get(\"https://api.github.com\").json()",
       "language": "python"
     },
     {
