@@ -13,7 +13,7 @@
           inherit system;
         };
         
-        nativeBuildInputs = with pkgs; [ nodejs_23 ];
+        nativeBuildInputs = with pkgs; [ yarn nodejs_23 ];
         buildInputs = with pkgs; [];
         devInputs = with pkgs; [];
 

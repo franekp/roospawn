@@ -26,7 +26,7 @@ export async function activate(context: vscode.ExtensionContext) {
             throw new Error('taskdozer: roo-cline extension not found');
         }
         let ai_api = ai_extension.exports;
-        await ai_api.startNewTask("Write a function that calculates factorial in TypeScript");
+        await ai_api.startNewTask("Calculate 2+2");
         
         outputChannel.appendLine('Run the query!');
     });
