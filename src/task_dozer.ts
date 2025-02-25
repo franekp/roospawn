@@ -164,6 +164,7 @@ export class TaskDozer {
             }
 
             this._active_task = task;
+            this._tasks_updated.fire();
 
             const rx = this._clineController.run(task);
             for await (const msg of rx) {
@@ -172,6 +173,7 @@ export class TaskDozer {
 
             this._completed_tasks.push(task);
             this._active_task = undefined;
+            this._tasks_updated.fire();
         }
     }
 
