@@ -23,13 +23,13 @@
     "rooveterinaryinc.roo-cline"
   ],
   "scripts": {
-    "vscode:prepublish": "npm run package",
+    "vscode:prepublish": "yarn package",
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "yarn compile-tests && yarn compile && yarn lint",
     "lint": "eslint src",
     "test": "vscode-test"
   },
@@ -47,5 +47,8 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1"
   },
-  "enabledApiProposals": ["extensionRuntime"]
+  "enabledApiProposals": [
+    "extensionRuntime"
+  ],
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
 }
