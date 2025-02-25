@@ -9,13 +9,26 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onNotebook:taskdozer"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "taskdozer.helloWorld",
         "title": "Hello World"
+      }
+    ],
+    "notebooks": [
+      {
+        "type": "taskdozer",
+        "displayName": "TaskDozer Notebook",
+        "selector": [
+          {
+            "filenamePattern": "*.dozer"
+          }
+        ]
       }
     ]
   },
