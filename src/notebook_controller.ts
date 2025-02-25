@@ -18,11 +18,10 @@ export class TaskDozerController {
     private _pyodide: PyodideInterface | undefined;
     private _executionOrder = 0;
 
-    private _taskDozer: TaskDozer;
-
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
-        private readonly _outputChannel: vscode.OutputChannel
+        private readonly _outputChannel: vscode.OutputChannel,
+        private readonly _taskDozer: TaskDozer
     ) {
         this._controller = vscode.notebooks.createNotebookController(
             this.controllerId,
@@ -33,8 +32,6 @@ export class TaskDozerController {
         this._controller.supportedLanguages = this.supportedLanguages;
         this._controller.supportsExecutionOrder = true;
         this._controller.executeHandler = this._execute.bind(this);
-
-        this._taskDozer = new TaskDozer(extensionContext, _outputChannel);
     }
 
     private async _initializePyodide() {

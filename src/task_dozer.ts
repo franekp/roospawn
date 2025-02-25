@@ -31,7 +31,7 @@ export class Task {
             if (task_dozer) {
                 task_dozer._paused_tasks.push(this);
                 task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
-                task_dozer._tasks_updated.fire();
+                task_dozer.schedule_ui_repaint();
             }
         }
     }
@@ -46,7 +46,7 @@ export class Task {
             if (task_dozer) {
                 task_dozer._queued_tasks.push(this);
                 task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
-                task_dozer._tasks_updated.fire();
+                task_dozer.schedule_ui_repaint();
             }
         }
         if (this.status === 'completed') { return; }
@@ -62,7 +62,7 @@ export class Task {
             task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
             task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
             task_dozer._completed_tasks = task_dozer._completed_tasks.filter(t => t !== this);
-            task_dozer._tasks_updated.fire();
+            task_dozer.schedule_ui_repaint();
         }
     }
 
@@ -82,9 +82,6 @@ export class TaskDozer {
     _completed_tasks: Task[] = [];
     _paused_tasks: Task[] = [];
 
-    _clineApi: ClineAPI;
-    _clineController: ClineController;
-
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
 
@@ -92,19 +89,10 @@ export class TaskDozer {
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
-        private readonly outputChannel: vscode.OutputChannel
+        private readonly outputChannel: vscode.OutputChannel,
+        private readonly _clineController: ClineController
     ) {
-        let clineApi = vscode.extensions.getExtension<ClineAPI>('rooveterinaryinc.roo-cline')?.exports;
-        if (!clineApi) {
-            throw new Error('TaskDozer: roo-cline extension not found');
-        }
-        this._clineApi = clineApi;
-
-        const provider = clineApi.sidebarProvider;
-        this._clineController = new ClineController(provider);
-
         this.worker();
-    
         this.outputChannel.appendLine('TaskDozer initialized');
         task_dozer = this;
         {
@@ -161,11 +149,12 @@ export class TaskDozer {
             const task = this._queued_tasks.shift();
             if (task === undefined) {
                 await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
+                this.wakeupWorker = undefined;
                 continue;
             }
 
             this._active_task = task;
-            this._tasks_updated.fire();
+            this.schedule_ui_repaint();
 
             const rx = this._clineController.run(task);
             for await (const msg of rx) {
@@ -174,23 +163,38 @@ export class TaskDozer {
 
             this._completed_tasks.push(task);
             this._active_task = undefined;
-            this._tasks_updated.fire();
+            this.schedule_ui_repaint();
         }
+    }
+
+    schedule_ui_repaint() {
+        setTimeout(() => {
+            // quick fix for some race condition with sending notebook outputs
+            this._tasks_updated.fire();
+        }, 100);
+        setTimeout(() => {
+            // quick fix for some race condition with sending notebook outputs
+            this._tasks_updated.fire();
+        }, 500);
+        setTimeout(() => {
+            // quick fix for some race condition with sending notebook outputs
+            this._tasks_updated.fire();
+        }, 1500);
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
         const task = new Task(prompt, cmd_before, cmd_after);
         this._queued_tasks.push(task);
         if (fire_event) {
-            this._tasks_updated.fire();
+            this.schedule_ui_repaint();
+            this.wakeupWorker?.();
         }
-        this.wakeupWorker?.();
         return task;
     }
 
     add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
         const result = [...tasks].map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
-        this._tasks_updated.fire();
+        this.schedule_ui_repaint();
         this.wakeupWorker?.();
         return result;
     }
