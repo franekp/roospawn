@@ -115,6 +115,15 @@ export class TaskDozer {
                 }
             })
         );
+
+        // Set up renderer messaging
+        const messageChannel = vscode.notebooks.createRendererMessaging('taskdozer-status-renderer');
+        this.tasks_updated(() => {
+            messageChannel.postMessage({
+                type: 'status_updated',
+                html: this.render_status_html()
+            });
+        });
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
@@ -146,6 +155,14 @@ export class TaskDozer {
 
     paused_tasks(): Task[] {
         return [...this._paused_tasks];
+    }
+
+    status(): any {
+        return {
+            ["application/x-taskdozer-status"]: {
+                html: this.render_status_html()
+            }
+        };
     }
 
     render_status_html(): string {

@@ -2,7 +2,7 @@ const path = require('path');
 const webpack = require('webpack');
 
 /** @type {import('webpack').Configuration} */
-module.exports = {
+const extensionConfig = {
   target: 'node',
   mode: 'none',
 
@@ -50,3 +50,41 @@ module.exports = {
     level: "log",
   }
 };
+
+/** @type {import('webpack').Configuration} */
+const rendererConfig = {
+  target: 'web',
+  mode: 'none',
+
+  entry: './src/renderer/index.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'renderer.js',
+    libraryTarget: 'module'
+  },
+  experiments: {
+    outputModule: true
+  },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader'
+          }
+        ]
+      }
+    ]
+  },
+  devtool: 'nosources-source-map',
+  infrastructureLogging: {
+    level: "log",
+  }
+};
+
+module.exports = [extensionConfig, rendererConfig];

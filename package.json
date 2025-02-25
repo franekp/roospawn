@@ -10,7 +10,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:taskdozer"
+    "onNotebook:taskdozer",
+    "onRenderer:taskdozer-status-renderer"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -28,6 +29,16 @@
           {
             "filenamePattern": "*.dozer"
           }
+        ]
+      }
+    ],
+    "notebookRenderer": [
+      {
+        "id": "taskdozer-status-renderer",
+        "displayName": "TaskDozer Status Renderer",
+        "entrypoint": "./dist/renderer.js",
+        "mimeTypes": [
+          "application/x-taskdozer-status"
         ]
       }
     ]
@@ -53,10 +64,11 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "@types/uuid": "^10.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.97.0",
+    "@types/vscode-notebook-renderer": "^1.72.3",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
     "@vscode/test-cli": "^0.0.10",
