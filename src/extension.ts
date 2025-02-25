@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import process from 'process';
 import { TextDecoder, TextEncoder } from 'util';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as path from 'path';
@@ -77,7 +78,10 @@ class TaskDozerController {
 
         try {
             const pyodidePath = path.join(this.extensionContext.extensionPath, 'resources', 'pyodide');
-            
+
+            delete process.env.PYTHONHOME;
+            delete process.env.PYTHONPATH;
+
             // Initialize Pyodide with the local indexURL
             this._pyodide = await loadPyodide({
                 indexURL: pyodidePath,
@@ -100,7 +104,7 @@ class TaskDozerController {
 
             this._outputChannel.appendLine('Pyodide initialized successfully with required packages');
         } catch (error) {
-            this._outputChannel.appendLine(`Failed to initialize Pyodide: ${error}`);
+            this._outputChannel.appendLine(`Failed to initialize Pyodide: ${JSON.stringify(error)}`);
             throw error;
         }
     }
@@ -120,7 +124,7 @@ class TaskDozerController {
         execution.executionOrder = ++this._executionOrder;
         execution.start(Date.now());
 
-        //try {
+        try {
             await this._initializePyodide();
             
             if (!this._pyodide) {
@@ -150,17 +154,20 @@ class TaskDozerController {
             ]);
             
             execution.end(true, Date.now());
-        //} catch (error) {
-        //    console.error('Execution error:', error);
-        //    
-        //    // Handle execution error
-        //    execution.replaceOutput([
-        //        new vscode.NotebookCellOutput([
-        //            vscode.NotebookCellOutputItem.error(error as Error)
-        //        ])
-        //    ]);
-        //    execution.end(false, Date.now());
-        //}
+        } catch (error) {
+            this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
+            
+            // Convert non-Error objects to Error objects
+            const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
+            
+            // Handle execution error
+            execution.replaceOutput([
+                new vscode.NotebookCellOutput([
+                    vscode.NotebookCellOutputItem.error(errorObject)
+                ])
+            ]);
+            execution.end(false, Date.now());
+        }
     }
 
     dispose() {
