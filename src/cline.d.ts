@@ -56,6 +56,7 @@ export interface ClineProvider {
 export interface Cline {
     say: (type: ClineSay, text?: string, images?: string[], partial?: boolean, checkpoint?: Record<string, unknown>) => Promise<undefined>;
     ask: (type: ClineAsk, text?: string, partial?: boolean) => Promise<{ response: ClineAskResponse; text?: string; images?: string[] }>;
+	abortTask: (isAbandoned?: boolean) => Promise<void>;
 }
 
 // `ClineSay` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/ExtensionMessage.ts>

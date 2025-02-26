@@ -156,9 +156,13 @@ export class TaskDozer {
             this._active_task = task;
             this.schedule_ui_repaint();
 
-            const rx = this._clineController.run(task);
-            for await (const msg of rx) {
-                console.log(msg);
+            try {
+                const rx = await this._clineController.run(task);
+                for await (const msg of rx) {
+                    console.log(msg);
+                }
+            } catch {
+                console.error('Error running task', task);
             }
 
             this._completed_tasks.push(task);
@@ -183,7 +187,7 @@ export class TaskDozer {
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
-this.showRooCodeSidebar();
+        this.showRooCodeSidebar();
         const task = new Task(prompt, cmd_before, cmd_after);
         this._queued_tasks.push(task);
         if (fire_event) {

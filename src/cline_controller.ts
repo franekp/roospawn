@@ -1,4 +1,5 @@
 import { ClineAPI, ClineAsk, ClineProvider, ClineSay } from './cline';
+import { Task } from './task_dozer'; 
 
 export type MessageType = { type: 'say', say: ClineSay } | { type: 'ask', ask: ClineAsk };
 
@@ -12,6 +13,9 @@ export class ClineController {
     private channel?: Channel<Message, void>;
     private task?: Task;
 
+    private busy: boolean = false;
+    private waiting: (() => void)[] = [];
+
     constructor(private provider: ClineProvider) {
         const controller = this;
 
@@ -20,7 +24,8 @@ export class ClineController {
             console.log('initClineWithTask', task, images);
             await oldInitClineWithTask(task, images);
 
-            // Only tamper in Cline instances that handle our tasks
+            controller.busy = true;
+
             if (controller.task !== undefined && controller.channel !== undefined) {
                 // Obtain the channel TX
                 let channel = controller.channel;
@@ -29,8 +34,11 @@ export class ClineController {
                 let cline = provider.cline!;
                 const oldSay = cline.say.bind(cline);
                 const oldAsk = cline.ask.bind(cline);
+                const oldAbortTask = cline.abortTask.bind(cline);
 
                 cline.say = async (type, text, images, partial, checkpoint) => {
+                    await oldSay(type, text, images, partial, checkpoint);
+
                     if (partial === false || partial === undefined) {
                         const message: Message = { type: { type: 'say', say: type }, text, images };
                         channel.send(message);
@@ -39,30 +47,68 @@ export class ClineController {
                             this.task = undefined;
                             cline.say = oldSay;
                             cline.ask = oldAsk;
+                            cline.abortTask = oldAbortTask;
 
                             channel.ret();
+                            controller.setNotBusy();
                         }
                     }
-                    await oldSay(type, text, images, partial, checkpoint);
                 };
 
                 cline.ask = async (type, text, partial) => {
                     if (partial === false || partial === undefined) {
                         channel.send({ type: { type: 'ask', ask: type }, text });
                     }
-                    const response = await oldAsk(type, text, partial);
-                    // TODO: do we want to handle the response too?
-                    return response;
+
+                    return await oldAsk(type, text, partial);
+                };
+
+                cline.abortTask = async (isAbandoned: boolean = false) => {
+                    await oldAbortTask(isAbandoned);
+
+                    this.task = undefined;
+                    cline.say = oldSay;
+                    cline.ask = oldAsk;
+                    cline.abortTask = oldAbortTask;
+
+                    channel.ret();
+                    controller.setNotBusy();
+                };
+            } else {
+                let cline = provider.cline!;
+                const oldSay = cline.say.bind(cline);
+                const oldAbortTask = cline.abortTask.bind(cline);
+
+                cline.say = async (type, text, images, partial, checkpoint) => {
+                    await oldSay(type, text, images, partial, checkpoint);
+
+                    if (partial === false || partial === undefined) {
+                        if (type === 'completion_result') {
+                            cline.say = oldSay;
+                            cline.abortTask = oldAbortTask;
+                            controller.setNotBusy();
+                        }
+                    }
+                };
+
+                cline.abortTask = async (isAbandoned: boolean = false) => {
+                    await oldAbortTask(isAbandoned);
+
+                    cline.say = oldSay;
+                    cline.abortTask = oldAbortTask;
+                    controller.setNotBusy();
                 };
             }
             
         };
     }
 
-    run(task: Task): AsyncGenerator<Message, void, void> {
-        if (this.task !== undefined) {
-            throw new Error('ClineController: already running a task');
+    async run(task: Task): Promise<AsyncGenerator<Message, void, void>> {
+        while (this.busy) {
+            await new Promise<void>((resolve) => this.waiting.push(resolve));
         }
+        this.busy = true;
+
         const { tx, rx } = Channel.create<Message, void>();
 
         this.channel = tx;
@@ -70,6 +116,11 @@ export class ClineController {
 
         this.provider.initClineWithTask(task.prompt);
         return rx;
+    }
+
+    private setNotBusy() {
+        this.busy = false;
+        this.waiting.shift()?.();
     }
 }
 
@@ -143,5 +194,3 @@ class Channel<T, Tr> {
 }
 
 type Data<T, Tr> = { type: 'send', value: T } | { type: 'ret', value: Tr };
-
-import { Task } from './task_dozer'; 
