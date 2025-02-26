@@ -11,6 +11,7 @@ interface StatusData {
 
 export const activate: ActivationFunction = (context: RendererContext<void>) => ({
     renderOutputItem(data: OutputItem, element: HTMLElement) {
+
         // Create container for the status HTML
         const container = document.createElement('div');
         container.id = 'taskdozer-status-container';
@@ -27,6 +28,19 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
                 if (event.type === 'status_updated') {
                     // Update container with new HTML
                     container.innerHTML = event.html;
+
+                    for (const elt of Array.from(container.getElementsByClassName('taskdozer-pause-button'))) {
+                        const btn = elt as HTMLButtonElement;
+                        const id = btn.getAttribute('data-task-id');
+                        const message = { type: 'pauseTask', id };
+                        btn.onclick = () => context.postMessage?.(message);
+                    }
+                    for (const elt of Array.from(container.getElementsByClassName('taskdozer-resume-button'))) {
+                        const btn = elt as HTMLButtonElement;
+                        const id = btn.getAttribute('data-task-id');
+                        const message = { type: 'resumeTask', id };
+                        btn.onclick = () => context.postMessage?.(message);
+                    }
                 }
             });
         }
