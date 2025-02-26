@@ -32,7 +32,7 @@ export class ClineController {
         };
     }
 
-    async run(task: Task): Promise<AsyncGenerator<Message, void, void>> {
+    async run(getTask: () => Task | undefined): Promise<AsyncGenerator<Message, void, void> | undefined> {
         let waiter = new Waiter(() =>
             !this.busy
             && !this.provider.cline?.isStreaming
@@ -41,6 +41,13 @@ export class ClineController {
         this.waiters.add(waiter);
         await waiter.wait();
         this.busy = true;
+
+        const task = getTask();
+
+        if (task === undefined) {
+            this.setNotBusy();
+            return Promise.resolve(undefined);
+        }
 
         const { tx, rx } = Channel.create<Message, void>();
 

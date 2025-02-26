@@ -110,27 +110,6 @@ export class TaskDozer {
                     this.outputChannel.appendLine('Resumed all tasks');
                 })
             );
-            // Register command to complete active task and pick next
-            extensionContext.subscriptions.push(
-                vscode.commands.registerCommand('taskdozer.completeActiveTask', () => {
-                    if (this._active_task) {
-                        this._active_task.status = 'completed';
-                        this._completed_tasks.push(this._active_task);
-                        this._active_task = undefined;
-
-                        // Pick next queued task if available
-                        if (this._queued_tasks.length > 0) {
-                            this._active_task = this._queued_tasks.shift();
-                            this._active_task!.status = 'active';
-                            this.outputChannel.appendLine(`Started task: ${this._active_task!.prompt}`);
-                        }
-
-                        this.outputChannel.appendLine('Completed active task');
-                    } else {
-                        this.outputChannel.appendLine('No active task to complete');
-                    }
-                })
-            );
         }
         // Set up renderer messaging
         const messageChannel = vscode.notebooks.createRendererMessaging('taskdozer-status-renderer');
@@ -146,27 +125,40 @@ export class TaskDozer {
 
     private async worker() {
         while (true) {
-            const task = this._queued_tasks.shift();
-            if (task === undefined) {
+            if (this._queued_tasks.length === 0) {
                 await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
                 this.wakeupWorker = undefined;
                 continue;
             }
 
-            this._active_task = task;
-            this.schedule_ui_repaint();
-
             try {
-                const rx = await this._clineController.run(task);
+                const rx = await this._clineController.run(() => {
+                    const task = this._queued_tasks.shift();
+                    if (task === undefined) {
+                        return;
+                    }
+
+                    this._active_task = task;
+                    this.schedule_ui_repaint();
+                    return task;
+                });
+
+                if (rx === undefined) {
+                    // `this._queued_tasks.shift()` returned undefined
+                    continue;
+                }
+
                 for await (const msg of rx) {
-                    console.log(msg);
+                    this._active_task!.conversation.push(msg);
                 }
             } catch {
-                console.error('Error running task', task);
+                console.error('Error running task', this._active_task);
             }
 
-            this._completed_tasks.push(task);
-            this._active_task = undefined;
+            if (this._active_task !== undefined) {
+                this._completed_tasks.push(this._active_task);
+                this._active_task = undefined;
+            }
             this.schedule_ui_repaint();
         }
     }
