@@ -57,6 +57,12 @@ export interface Cline {
     say: (type: ClineSay, text?: string, images?: string[], partial?: boolean, checkpoint?: Record<string, unknown>) => Promise<undefined>;
     ask: (type: ClineAsk, text?: string, partial?: boolean) => Promise<{ response: ClineAskResponse; text?: string; images?: string[] }>;
 	abortTask: (isAbandoned?: boolean) => Promise<void>;
+
+	isStreaming: boolean;
+
+	abort: boolean;
+
+	clineMessages: ClineMessage[];
 }
 
 // `ClineSay` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/ExtensionMessage.ts>
@@ -101,3 +107,17 @@ export type ClineAsk =
 
 // `ClineAskResponse` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/WebviewMessage.ts>
 export type ClineAskResponse = "yesButtonClicked" | "noButtonClicked" | "messageResponse"
+
+// `ClineMessage` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/ExtensionMessage.ts>
+export interface ClineMessage {
+	ts: number
+	type: "ask" | "say"
+	ask?: ClineAsk
+	say?: ClineSay
+	text?: string
+	images?: string[]
+	partial?: boolean
+	reasoning?: string
+	conversationHistoryIndex?: number
+	checkpoint?: Record<string, unknown>
+}
