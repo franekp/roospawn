@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
-import { ClineAPI, ClineAsk, ClineProvider, ClineSay } from './cline';
 import { ClineController, type Message } from './cline_controller';
 
 type TaskStatus = 'queued' | 'active' | 'completed' | 'paused' | 'deleted';
