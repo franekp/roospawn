@@ -28,8 +28,6 @@ export class Task {
         if (this.status === 'queued') {
             this.status = 'paused';
             if (task_dozer) {
-                task_dozer._paused_tasks.push(this);
-                task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
                 task_dozer.schedule_ui_repaint();
             }
         }
@@ -43,9 +41,8 @@ export class Task {
         if (this.status === 'paused') {
             this.status = 'queued';
             if (task_dozer) {
-                task_dozer._queued_tasks.push(this);
-                task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
                 task_dozer.schedule_ui_repaint();
+                task_dozer.wakeupWorker?.();
             }
         }
         if (this.status === 'completed') { return; }
@@ -58,9 +55,7 @@ export class Task {
         }
         this.status = 'deleted';
         if (task_dozer) {
-            task_dozer._queued_tasks = task_dozer._queued_tasks.filter(t => t !== this);
-            task_dozer._paused_tasks = task_dozer._paused_tasks.filter(t => t !== this);
-            task_dozer._completed_tasks = task_dozer._completed_tasks.filter(t => t !== this);
+            task_dozer.tasks = task_dozer.tasks.filter(t => t !== this);
             task_dozer.schedule_ui_repaint();
         }
     }
@@ -76,10 +71,8 @@ export class TaskDozerStatus {
 let task_dozer: TaskDozer | undefined;
 
 export class TaskDozer {
-    _queued_tasks: Task[] = [];
-    _active_task: Task | undefined;
-    _completed_tasks: Task[] = [];
-    _paused_tasks: Task[] = [];
+    tasks: Task[] = [];
+    activeTask: Task | undefined;
 
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
@@ -98,14 +91,14 @@ export class TaskDozer {
             // Register command to pause all tasks
             extensionContext.subscriptions.push(
                 vscode.commands.registerCommand('taskdozer.pauseAllTasks', () => {
-                    [...this._queued_tasks].forEach(task => task.pause());
+                    [...this.tasks].filter(t => t.status === 'queued').forEach(task => task.pause());
                     this.outputChannel.appendLine('Paused all tasks');
                 })
             );
             // Register command to resume all tasks
             extensionContext.subscriptions.push(
                 vscode.commands.registerCommand('taskdozer.resumeAllTasks', () => {
-                    [...this._paused_tasks].forEach(task => task.resume());
+                    [...this.tasks].filter(t => t.status === 'paused').forEach(task => task.resume());
                     this.outputChannel.appendLine('Resumed all tasks');
                 })
             );
@@ -120,11 +113,21 @@ export class TaskDozer {
                 });
             })
         );
+        messageChannel.onDidReceiveMessage(evt => {
+            const msg = evt.message;
+
+            if (msg.type === 'pauseTask') {
+                this.tasks.find(t => t.id === msg.id)?.pause();
+            }
+            if (msg.type === 'resumeTask') {
+                this.tasks.find(t => t.id === msg.id)?.resume();
+            }
+        });
     }
 
     private async worker() {
         while (true) {
-            if (this._queued_tasks.length === 0) {
+            if (this.getFirstQueuedTask() === undefined) {
                 await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
                 this.wakeupWorker = undefined;
                 continue;
@@ -132,34 +135,40 @@ export class TaskDozer {
 
             try {
                 const rx = await this._clineController.run(() => {
-                    const task = this._queued_tasks.shift();
+                    const task = this.getFirstQueuedTask();
                     if (task === undefined) {
                         return;
                     }
+                    task.status = 'active';
 
-                    this._active_task = task;
+                    this.activeTask = task;
                     this.schedule_ui_repaint();
                     return task;
                 });
 
                 if (rx === undefined) {
-                    // `this._queued_tasks.shift()` returned undefined
+                    // There is no queued task (probably one was deleted or paused),
+                    // so we need to wait for the next one.
                     continue;
                 }
 
                 for await (const msg of rx) {
-                    this._active_task!.conversation.push(msg);
+                    this.activeTask!.conversation.push(msg);
                 }
             } catch {
-                console.error('Error running task', this._active_task);
+                console.error('Error running task', this.activeTask);
             }
 
-            if (this._active_task !== undefined) {
-                this._completed_tasks.push(this._active_task);
-                this._active_task = undefined;
+            if (this.activeTask !== undefined) {
+                this.activeTask.status = 'completed';
+                this.activeTask = undefined;
             }
             this.schedule_ui_repaint();
         }
+    }
+
+    private getFirstQueuedTask(): Task | undefined {
+        return this.tasks.find(t => t.status === 'queued');
     }
 
     schedule_ui_repaint() {
@@ -180,7 +189,7 @@ export class TaskDozer {
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
         this.showRooCodeSidebar();
         const task = new Task(prompt, cmd_before, cmd_after);
-        this._queued_tasks.push(task);
+        this.tasks.push(task);
         if (fire_event) {
             this.schedule_ui_repaint();
             this.wakeupWorker?.();
@@ -197,19 +206,19 @@ export class TaskDozer {
     }
 
     queued_tasks(): Task[] {
-        return [...this._queued_tasks];
+        return this.tasks.filter(t => t.status === 'queued');
     }
 
     active_task(): Task | undefined {
-        return this._active_task;
+        return this.activeTask;
     }
 
     completed_tasks(): Task[] {
-        return [...this._completed_tasks];
+        return this.tasks.filter(t => t.status === 'completed');
     }
 
     paused_tasks(): Task[] {
-        return [...this._paused_tasks];
+        return this.tasks.filter(t => t.status === 'paused');
     }
 
     status(): TaskDozerStatus {
@@ -249,6 +258,10 @@ export class TaskDozer {
                 <div class="task-container">
                     <div class="task ${status}">
                         <span class="task-id">#${task.id}</span>
+                        ${task.status === 'paused' ?
+                            `<button class="taskdozer-resume-button" data-task-id="${task.id}">Resume</button>` : ''}
+                        ${task.status === 'queued' ?
+                            `<button class="taskdozer-pause-button" data-task-id="${task.id}">Pause</button>` : ''}
                         <span class="task-prompt">${task.prompt}</span>
                     </div>
                 </div>
@@ -257,25 +270,9 @@ export class TaskDozer {
 
         const sections = [];
 
-        // Active task
-        if (this._active_task) {
-            sections.push(renderTask(this._active_task, 'active'));
+        for (const task of this.tasks) {
+            sections.push(renderTask(task, task.status));
         }
-
-        // Queued tasks
-        this._queued_tasks.forEach(task => {
-            sections.push(renderTask(task, 'queued'));
-        });
-
-        // Completed tasks
-        this._completed_tasks.forEach(task => {
-            sections.push(renderTask(task, 'completed'));
-        });
-
-        // Paused tasks
-        this._paused_tasks.forEach(task => {
-            sections.push(renderTask(task, 'paused'));
-        });
 
         return styles + sections.join('');
     }
