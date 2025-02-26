@@ -183,6 +183,7 @@ export class TaskDozer {
     }
 
     add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
+this.showRooCodeSidebar();
         const task = new Task(prompt, cmd_before, cmd_after);
         this._queued_tasks.push(task);
         if (fire_event) {
@@ -193,6 +194,7 @@ export class TaskDozer {
     }
 
     add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
+        this.showRooCodeSidebar();
         const result = [...tasks].map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
         this.schedule_ui_repaint();
         this.wakeupWorker?.();
@@ -217,6 +219,10 @@ export class TaskDozer {
 
     status(): TaskDozerStatus {
         return new TaskDozerStatus(this.render_status_html());
+    }
+
+    async showRooCodeSidebar(): Promise<void> {
+        await vscode.commands.executeCommand('workbench.view.extension.roo-cline-ActivityBar');
     }
 
     render_status_html(): string {
