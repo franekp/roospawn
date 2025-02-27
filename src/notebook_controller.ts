@@ -4,7 +4,7 @@ import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as path from 'path';
 import { TaskDozer, TaskDozerStatus } from './task_dozer';
 
-export class TaskDozerController {
+export class PyNotebookController {
     readonly controllerId = 'taskdozer-controller';
     readonly notebookType = 'taskdozer';
     readonly label = 'TaskDozer Python';

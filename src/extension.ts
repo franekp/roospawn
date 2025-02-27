@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskDozerSerializer } from './notebook_serializer';
-import { TaskDozerController } from './notebook_controller';
+import { PyNotebookController } from './notebook_controller';
 import { ClineController } from './cline_controller';
 import { TaskDozer } from './task_dozer';
 
@@ -19,7 +19,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create main objects with proper dependency injection
     const clineController = new ClineController(clineProvider);
     const taskDozer = new TaskDozer(context, outputChannel, clineController);
-    const notebookController = new TaskDozerController(context, outputChannel, taskDozer);
+    const notebookController = new PyNotebookController(context, outputChannel, taskDozer);
 
     // Register notebook serializer
     context.subscriptions.push(
