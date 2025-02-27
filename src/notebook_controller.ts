@@ -110,7 +110,7 @@ export class TaskDozerController {
 
             if (result instanceof TaskDozerStatus) {
                 this._current_execution.appendOutputItems([ 
-                    vscode.NotebookCellOutputItem.json({html: result.html}, result.mime_type)
+                    vscode.NotebookCellOutputItem.json({tasks: result.tasks}, result.mime_type)
                 ], this._current_output!);
             } else { 
                 let output: string;

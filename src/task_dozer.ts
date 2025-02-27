@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
 import { ClineController, type Message } from './cline_controller';
+import { ITask, TaskStatus } from './shared';
 
-type TaskStatus = 'queued' | 'active' | 'completed' | 'paused' | 'deleted';
-
-export class Task {
+export class Task implements ITask {
     id: string;
     prompt: string;
     cmd_before: string | undefined;
@@ -65,7 +64,7 @@ export class Task {
 
 export class TaskDozerStatus {
     public mime_type = 'application/x-taskdozer-status';
-    constructor(public html: string) {}
+    constructor(public tasks: ITask[]) {}
 }
 
 let task_dozer: TaskDozer | undefined;
@@ -109,7 +108,7 @@ export class TaskDozer {
             this.tasks_updated(async () => {
                 await messageChannel.postMessage({
                     type: 'status_updated',
-                    html: this.render_status_html()
+                    tasks: [...this.tasks],
                 });
             })
         );
@@ -222,58 +221,10 @@ export class TaskDozer {
     }
 
     status(): TaskDozerStatus {
-        return new TaskDozerStatus(this.render_status_html());
+        return new TaskDozerStatus([...this.tasks]);
     }
 
     async showRooCodeSidebar(): Promise<void> {
         await vscode.commands.executeCommand('workbench.view.extension.roo-cline-ActivityBar');
-    }
-
-    render_status_html(): string {
-        const styles = `
-            <style>
-                .task-container { font-family: system-ui; margin: 4px 0; }
-                .task { padding: 4px 8px; border-radius: 4px; }
-                .task-id { font-size: 0.8em; opacity: 0.7; }
-                .task-prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; display: inline-block; }
-                .active { 
-                    background: linear-gradient(270deg, #ff9933, #ffb366);
-                    background-size: 200% 100%;
-                    color: white;
-                    animation: gradient 2s ease infinite;
-                }
-                @keyframes gradient {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
-                }
-                .queued { background: #ffff00; color: black; }
-                .completed { background: #008080; color: white; }
-                .paused { background: #808080; color: white; }
-            </style>
-        `;
-
-        const renderTask = (task: Task, status: string) => {
-            return `
-                <div class="task-container">
-                    <div class="task ${status}">
-                        <span class="task-id">#${task.id}</span>
-                        ${task.status === 'paused' ?
-                            `<button class="taskdozer-resume-button" data-task-id="${task.id}">Resume</button>` : ''}
-                        ${task.status === 'queued' ?
-                            `<button class="taskdozer-pause-button" data-task-id="${task.id}">Pause</button>` : ''}
-                        <span class="task-prompt">${task.prompt}</span>
-                    </div>
-                </div>
-            `;
-        };
-
-        const sections = [];
-
-        for (const task of this.tasks) {
-            sections.push(renderTask(task, task.status));
-        }
-
-        return styles + sections.join('');
     }
 }
