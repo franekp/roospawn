@@ -255,7 +255,7 @@ export class TaskDozer {
             `;
         };
 
-        const sections = [];
+        const sections: string[] = [];
 
         // Active task
         if (this._active_task) {
