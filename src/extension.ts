@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { TaskDozerSerializer } from './notebook_serializer';
-import { PyNotebookController } from './notebook_controller';
+import { PyNotebookController } from './py_notebook_controller';
 import { ClineController } from './cline_controller';
 import { TaskDozer } from './task_dozer';
 
