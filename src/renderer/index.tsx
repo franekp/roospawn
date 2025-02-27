@@ -44,38 +44,70 @@ function TasksComponent({tasks: initialTasks, context}: {tasks: ITask[], context
     return <div>
         <style>{styles}</style>
         <div>
-            {tasks.map(task => <TaskComponent key={task.id} task={task} context={context} />)}
+            {tasks.map(task =>
+                <TaskComponent
+                    key={task.id}
+                    task={task}
+                    postMessage={(message: MessageFromRenderer) => context.postMessage?.(message)}
+                />
+            )}
         </div>
     </div>;
 }
 
-function TaskComponent({task, context}: {task: ITask, context: RendererContext<void>}): React.ReactNode {
+function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message: MessageFromRenderer) => void}): React.ReactNode {
     let pauseButton: React.ReactNode | undefined = undefined;
     if (task.status === 'queued') {
         pauseButton = <button onClick={() => {
-            context.postMessage?.({
+            postMessage({
                 type: 'pause',
                 id: task.id
-            } as MessageFromRenderer);
+            });
         }}>Pause</button>;
     }
 
     let resumeButton: React.ReactNode | undefined = undefined;
     if (task.status === 'paused') {
         resumeButton = <button onClick={() => {
-            context.postMessage?.({
+            postMessage({
                 type: 'resume',
                 id: task.id
-            } as MessageFromRenderer);
+            });
         }}>Resume</button>;
     }
+
+    let moveUpButton = <button onClick={() => {
+        postMessage({
+            type: 'moveUp',
+            id: task.id
+        });
+    }}>Up</button>;
+
+    let moveDownButton = <button onClick={() => {
+        postMessage({
+            type: 'moveDown',
+            id: task.id
+        });
+    }}>Down</button>;
+
+    let deleteButton = <button onClick={() => {
+        postMessage({
+            type: 'delete',
+            id: task.id
+        });
+    }}>Delete</button>;
 
     return <div className='task-container'>
         <div className={ "task " + task.status }>
             <span className="task-id">#{task.id}</span>
-            {pauseButton}
-            {resumeButton}
             <span className="task-prompt">{task.prompt}</span>
+            <span className="task-buttons">
+                {pauseButton}
+                {resumeButton}
+                {moveUpButton}
+                {moveDownButton}
+                {deleteButton}
+            </span>
         </div>
     </div>;
 }
@@ -85,6 +117,7 @@ const styles = `
 .task { padding: 4px 8px; border-radius: 4px; }
 .task-id { font-size: 0.8em; opacity: 0.7; margin-right: 4px; }
 .task-prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; display: inline-block; }
+.task-buttons { display: inline-block; float: right; }
 .active { 
     background: linear-gradient(270deg, #ff9933, #ffb366);
     background-size: 200% 100%;
