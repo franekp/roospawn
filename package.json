@@ -36,7 +36,7 @@
       {
         "id": "taskdozer-status-renderer",
         "displayName": "TaskDozer Status Renderer",
-        "entrypoint": "./dist/renderer.js",
+        "entrypoint": "./dist-renderer/renderer.js",
         "mimeTypes": [
           "application/x-taskdozer-status"
         ],
@@ -84,6 +84,7 @@
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "files": [
     "dist",
+    "dist-renderer",
     "resources"
   ]
 }

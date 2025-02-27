@@ -9,6 +9,7 @@ const extensionConfig = {
   entry: './src/extension.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
+    clean: true,
     filename: 'extension.js',
     libraryTarget: 'commonjs2'
   },
@@ -58,7 +59,7 @@ const rendererConfig = {
 
   entry: './src/renderer/index.ts',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'dist-renderer'),
     filename: 'renderer.js',
     clean: true,
     libraryTarget: 'module',
