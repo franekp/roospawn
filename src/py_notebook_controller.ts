@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
+import * as pyodide from 'pyodide';
 import * as path from 'path';
 import { TaskDozer, TaskDozerStatus } from './task_dozer';
 
@@ -112,14 +113,21 @@ export class PyNotebookController {
                 this._current_execution.appendOutputItems([
                     vscode.NotebookCellOutputItem.json({html: result.html}, result.mime_type)
                 ], this._current_output!);
-            } else if (this._pyodide.isPyProxy(result)) {
+            } else if (result instanceof this._pyodide.ffi.PyProxy) {
                 const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));
                 if (isDict) {
                     const jsResult = result.toJs();
-                    if ('html' in jsResult) {
-                        this._current_execution.appendOutputItems([
-                            vscode.NotebookCellOutputItem.text(jsResult.html, 'text/html')
-                        ], this._current_output!);
+                    if (jsResult instanceof Map && jsResult.has('html')) {
+                        // We must use replaceOutput because if there are existing "stdout" outputs, vscode will refuse to
+                        // render HTML output.
+                        this._current_execution.replaceOutput([
+                            new vscode.NotebookCellOutput([
+                                vscode.NotebookCellOutputItem.text(jsResult.get('html').toString(), 'text/html')
+                            ])
+                        ]);
+                        execution.end(true, Date.now());
+                        this._current_output = undefined;
+                        this._current_execution = undefined;
                         return;
                     }
                 }
