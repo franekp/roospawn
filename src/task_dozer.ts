@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
 import { ClineController, type Message } from './cline_controller';
-import { ITask, TaskStatus } from './shared';
+import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus } from './shared';
 
 export class Task implements ITask {
     id: string;
@@ -60,9 +60,29 @@ export class Task implements ITask {
     }
 
     remove() { this.delete(); }
+
+    move_up() {
+        if(!task_dozer) { return; }
+        const index = task_dozer.tasks.indexOf(this);
+        if(index === -1) { throw new Error("Task not found on the task list"); }
+        if(index === 0) { return; }
+        task_dozer.tasks[index] = task_dozer.tasks[index - 1];
+        task_dozer.tasks[index - 1] = this;
+        task_dozer.schedule_ui_repaint();
+    }
+    
+    move_down() {
+        if(!task_dozer) { return; }
+        const index = task_dozer.tasks.indexOf(this);
+        if(index === -1) { throw new Error("Task not found on the task list"); }
+        if(index === task_dozer.tasks.length - 1) { return; }
+        task_dozer.tasks[index] = task_dozer.tasks[index + 1];
+        task_dozer.tasks[index + 1] = this;
+        task_dozer.schedule_ui_repaint();
+    }
 }
 
-export class TaskDozerStatus {
+export class TaskDozerStatus implements RendererInitializationData {
     public mime_type = 'application/x-taskdozer-status';
     constructor(public tasks: ITask[]) {}
 }
@@ -107,19 +127,31 @@ export class TaskDozer {
         this.extensionContext.subscriptions.push(
             this.tasks_updated(async () => {
                 await messageChannel.postMessage({
-                    type: 'status_updated',
+                    type: 'statusUpdated',
                     tasks: [...this.tasks],
-                });
+                } as MessageToRenderer);
             })
         );
         messageChannel.onDidReceiveMessage(evt => {
-            const msg = evt.message;
+            const msg = evt.message as MessageFromRenderer;
 
-            if (msg.type === 'pauseTask') {
-                this.tasks.find(t => t.id === msg.id)?.pause();
-            }
-            if (msg.type === 'resumeTask') {
-                this.tasks.find(t => t.id === msg.id)?.resume();
+            const task = this.tasks.find(t => t.id === msg.id);
+            switch (msg.type) {
+                case 'pause':
+                    task?.pause();
+                    break;
+                case 'resume':
+                    task?.resume();
+                    break;
+                case 'moveUp':
+                    task?.move_up();
+                    break;
+                case 'moveDown':
+                    task?.move_down();
+                    break;
+                case 'delete':
+                    task?.delete();
+                    break;
             }
         });
     }
