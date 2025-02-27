@@ -1,11 +1,13 @@
 import type { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import type { ITask } from '../shared';
+import type { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData } from '../shared';
 
 
 export const activate: ActivationFunction = (context: RendererContext<void>) => ({
     renderOutputItem(data: OutputItem, element: HTMLElement) {
+        const initializationData = data.json() as RendererInitializationData;
+
         let shadow = element.shadowRoot;
         if (!shadow) {
             shadow = element.attachShadow({ mode: 'open' });
@@ -19,7 +21,7 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
             throw new Error('Could not find root element');
         }
 
-        ReactDOM.createRoot(root).render(<TasksComponent tasks={data.json().tasks} context={context} />);
+        ReactDOM.createRoot(root).render(<TasksComponent tasks={initializationData.tasks} context={context} />);
     },
 
     disposeOutputItem(id: string) {
@@ -31,8 +33,8 @@ function TasksComponent({tasks: initialTasks, context}: {tasks: ITask[], context
     let [tasks, setTasks] = useState<ITask[]>(initialTasks);
 
     useEffect(() => {
-        const disposable = context.onDidReceiveMessage?.((event) => {
-            if (event.type === 'status_updated') {
+        const disposable = context.onDidReceiveMessage?.((event: MessageToRenderer) => {
+            if (event.type === 'statusUpdated') {
                 setTasks(event.tasks);
             }
         });
@@ -52,9 +54,9 @@ function TaskComponent({task, context}: {task: ITask, context: RendererContext<v
     if (task.status === 'queued') {
         pauseButton = <button onClick={() => {
             context.postMessage?.({
-                type: 'pauseTask',
+                type: 'pause',
                 id: task.id
-            });
+            } as MessageFromRenderer);
         }}>Pause</button>;
     }
 
@@ -62,9 +64,9 @@ function TaskComponent({task, context}: {task: ITask, context: RendererContext<v
     if (task.status === 'paused') {
         resumeButton = <button onClick={() => {
             context.postMessage?.({
-                type: 'resumeTask',
+                type: 'resume',
                 id: task.id
-            });
+            } as MessageFromRenderer);
         }}>Resume</button>;
     }
 
