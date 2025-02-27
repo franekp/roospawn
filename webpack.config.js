@@ -1,6 +1,8 @@
 const path = require('path');
 const webpack = require('webpack');
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 /** @type {import('webpack').Configuration} */
 const extensionConfig = {
   target: 'node',
@@ -60,7 +62,7 @@ const rendererConfig = {
   target: 'web',
   mode: 'none',
 
-  entry: './src/renderer/index.ts',
+  entry: './src/renderer/index.tsx',
   output: {
     path: path.resolve(__dirname, 'dist-renderer'),
     filename: 'renderer.js',
@@ -73,12 +75,12 @@ const rendererConfig = {
     outputModule: true
   },
   resolve: {
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.tsx', '.js']
   },
   module: {
     rules: [
       {
-        test: /\.ts$/,
+        test: /\.tsx?$/,
         exclude: /node_modules/,
         use: [
           {
@@ -90,6 +92,14 @@ const rendererConfig = {
         ]
       }
     ]
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(isDevelopment ? 'development' : 'production'),
+    }),
+  ],
+  optimization: {
+    nodeEnv: false,
   },
   devtool: 'nosources-source-map',
   infrastructureLogging: {
