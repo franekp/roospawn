@@ -109,10 +109,30 @@ export class PyNotebookController {
             const result = await this._pyodide.runPythonAsync(code);
 
             if (result instanceof TaskDozerStatus) {
-                this._current_execution.appendOutputItems([ 
+                this._current_execution.appendOutputItems([
                     vscode.NotebookCellOutputItem.json({html: result.html}, result.mime_type)
                 ], this._current_output!);
-            } else { 
+            } else if (this._pyodide.isPyProxy(result)) {
+                const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));
+                if (isDict) {
+                    const jsResult = result.toJs();
+                    if ('html' in jsResult) {
+                        this._current_execution.appendOutputItems([
+                            vscode.NotebookCellOutputItem.text(jsResult.html, 'text/html')
+                        ], this._current_output!);
+                        return;
+                    }
+                }
+                let output: string;
+                try {
+                    output = this._pyodide.globals.get('str')(result).toString();
+                } catch {
+                    output = String(result);
+                }
+                this._current_execution.appendOutputItems([
+                    vscode.NotebookCellOutputItem.stdout(output + '\n')
+                ], this._current_output!);
+            } else {
                 let output: string;
                 if (result !== undefined) {
                     try {
