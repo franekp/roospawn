@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
-import { ClineController, type Message } from './cline_controller';
+import { ClineController, ExitReason, type Message } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus } from './shared';
 import { PromptExtractor } from './prompt_extractor';
 
@@ -212,6 +212,7 @@ export class TaskDozer {
                 this.wakeupWorker = undefined;
             }
 
+            let exit_reason: ExitReason;
             try {
                 const rx = await this._clineController.run(() => {
                     if (!this.enabled) {
@@ -234,15 +235,18 @@ export class TaskDozer {
                     continue;
                 }
 
-                for await (const msg of rx) {
-                    this.activeTask!.conversation.push(msg);
+                let msg;
+                while (!(msg = await rx.next()).done) {
+                    this.activeTask!.conversation.push(msg.value as Message);
                 }
+                exit_reason = msg.value as ExitReason;
             } catch {
+                exit_reason = 'thrown-exception';
                 console.error('Error running task', this.activeTask);
             }
 
             if (this.activeTask !== undefined) {
-                this.activeTask.status = 'completed';
+                this.activeTask.status = exit_reason;
                 this.activeTask = undefined;
             }
             this.schedule_ui_repaint();
@@ -284,7 +288,7 @@ export class TaskDozer {
             this.tasks.push(task);
             return task;
         });
-        
+
         this.schedule_ui_repaint();
         this.wakeupWorker?.();
         return result;

@@ -1,8 +1,9 @@
-import { Channel, Waiters, Waiter } from './async_utils';
+import { Channel, Waiters, Waiter, timeout } from './async_utils';
 import { Cline, ClineAsk, ClineProvider, ClineSay } from './cline';
 import { Task } from './task_dozer'; 
 
 export type MessageType = { type: 'say', say: ClineSay } | { type: 'ask', ask: ClineAsk };
+export type ExitReason = 'completed' | 'aborted' | 'hanging' | 'thrown-exception';
 
 export interface Message {
     type: MessageType;
@@ -11,7 +12,7 @@ export interface Message {
 }
 
 export class ClineController {
-    private channel?: Channel<Message, void>;
+    private channel?: Channel<Message, ExitReason>;
     private task?: Task;
 
     private busy: boolean = false;
@@ -32,7 +33,7 @@ export class ClineController {
         };
     }
 
-    async run(getTask: () => Task | undefined): Promise<AsyncGenerator<Message, void, void> | undefined> {
+    async run(getTask: () => Task | undefined): Promise<AsyncGenerator<Message, ExitReason, void> | undefined> {
         let waiter = new Waiter(() =>
             !this.busy
             && !this.provider.cline?.isStreaming
@@ -49,7 +50,7 @@ export class ClineController {
             return Promise.resolve(undefined);
         }
 
-        const { tx, rx } = Channel.create<Message, void>();
+        const { tx, rx } = Channel.create<Message, ExitReason>();
 
         this.channel = tx;
         this.task = task;
@@ -66,13 +67,13 @@ export class ClineController {
     private attachTrackingToCline(cline: Cline) {
         this.busy = true;
 
+        const oldSay: Cline['say'] = cline.say.bind(cline);
+        const oldAsk: Cline['ask'] = cline.ask.bind(cline);
+        const oldAbortTask: Cline['abortTask'] = cline.abortTask.bind(cline);
+
         if (this.task !== undefined && this.channel !== undefined) {
             let channel = this.channel;
             this.channel = undefined;
-
-            const oldSay = cline.say.bind(cline);
-            const oldAsk = cline.ask.bind(cline);
-            const oldAbortTask = cline.abortTask.bind(cline);
 
             cline.say = async (type, text, images, partial, checkpoint) => {
                 await oldSay(type, text, images, partial, checkpoint);
@@ -87,7 +88,7 @@ export class ClineController {
                         cline.ask = oldAsk;
                         cline.abortTask = oldAbortTask;
 
-                        channel.ret();
+                        channel.ret('completed');
                         this.setNotBusy();
                     }
                 }
@@ -98,7 +99,22 @@ export class ClineController {
                     channel.send({ type: { type: 'ask', ask: type }, text });
                 }
 
-                return await oldAsk(type, text, partial);
+                const result = await timeout(10000, oldAsk(type, text, partial));
+                switch (result.reason) {
+                    case 'timeout':
+                        this.task = undefined;
+                        cline.say = oldSay;
+                        cline.ask = oldAsk;
+                        cline.abortTask = oldAbortTask;
+
+                        channel.ret('hanging');
+                        oldAbortTask(true);
+                        this.setNotBusy();
+                        // TODO: Or throwing an error is a better idea?
+                        return { response: 'noButtonClicked' };
+                    case 'promise':
+                        return result.value;
+                }
             };
 
             cline.abortTask = async (isAbandoned: boolean = false) => {
@@ -109,14 +125,10 @@ export class ClineController {
                 cline.ask = oldAsk;
                 cline.abortTask = oldAbortTask;
 
-                channel.ret();
+                channel.ret('aborted');
                 this.setNotBusy();
             };
         } else {
-            const oldSay = cline.say.bind(cline);
-            const oldAsk = cline.ask.bind(cline);
-            const oldAbortTask = cline.abortTask.bind(cline);
-
             cline.say = async (type, text, images, partial, checkpoint) => {
                 await oldSay(type, text, images, partial, checkpoint);
 

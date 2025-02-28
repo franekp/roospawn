@@ -96,9 +96,8 @@ export class Waiter {
 
     async wait() {
         while (!this.condition()) {
-            const timeout = new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
-            const waker = new Promise<void>((resolve) => this.waker = resolve);
-            await Promise.race([timeout, waker]);
+            await timeout(1000, new Promise<void>((resolve) => this.waker = resolve));
+            this.waker = undefined;
         }
 
         this.completed = true;
@@ -113,4 +112,10 @@ export class Waiter {
         this.waker = undefined;
         return true;
     }
+}
+
+export function timeout<T>(ms: number, promise: Promise<T>): Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }> {
+    const t = new Promise<{ reason: 'timeout' }>((resolve) => setTimeout(() => resolve({ reason: 'timeout' }), ms));
+    const p: Promise<{ reason: 'promise', value: T }> = promise.then(value => ({ reason: 'promise', value }));
+    return Promise.race([t, p]);
 }

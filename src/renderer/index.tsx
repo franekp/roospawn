@@ -145,5 +145,8 @@ const styles = `
 }
 .queued { background: #ffff00; color: black; }
 .completed { background: #008080; color: white; }
+.aborted { background: #ff00ff; color: white; }
+.hanging { background: #0000ff; color: white; }
+.thrown-exception { background: #ff0000; color: white; }
 .paused { background: #808080; color: white; }
 `;

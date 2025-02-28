@@ -1,4 +1,4 @@
-export type TaskStatus = 'queued' | 'active' | 'completed' | 'paused' | 'deleted';
+export type TaskStatus = 'queued' | 'active' | 'completed' | 'hanging' | 'aborted' | 'paused' | 'deleted' | 'thrown-exception';
 
 export interface ITask {
     id: string;
