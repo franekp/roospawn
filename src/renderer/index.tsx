@@ -21,7 +21,7 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
             throw new Error('Could not find root element');
         }
 
-        ReactDOM.createRoot(root).render(<TasksComponent tasks={initializationData.tasks} context={context} />);
+        ReactDOM.createRoot(root).render(<TasksComponent tasks={initializationData.tasks} enabled={initializationData.enabled} context={context} />);
     },
 
     disposeOutputItem(id: string) {
@@ -29,20 +29,38 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
     }
 });
 
-function TasksComponent({tasks: initialTasks, context}: {tasks: ITask[], context: RendererContext<void>}) {
+function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}: {tasks: ITask[], enabled: boolean, context: RendererContext<void>}) {
     let [tasks, setTasks] = useState<ITask[]>(initialTasks);
+    let [enabled, setEnabled] = useState<boolean>(initialEnabled);
 
     useEffect(() => {
         const disposable = context.onDidReceiveMessage?.((event: MessageToRenderer) => {
             if (event.type === 'statusUpdated') {
                 setTasks(event.tasks);
+                setEnabled(event.enabled);
             }
         });
         return () => disposable?.dispose();
     }, [context]);
 
+    let enableButton: React.ReactNode | undefined;
+    if (enabled) {
+        enableButton = <button onClick={() => {
+            context.postMessage?.({
+                type: 'disable'
+            });
+        }}>Disable</button>;
+    } else {
+        enableButton = <button onClick={() => {
+            context.postMessage?.({
+                type: 'enable'
+            });
+        }}>Enable</button>;
+    }
+
     return <div>
         <style>{styles}</style>
+        <div>{enableButton}</div>
         <div>
             {tasks.map(task =>
                 <TaskComponent

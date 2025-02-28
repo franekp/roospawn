@@ -80,11 +80,31 @@ export class Task implements ITask {
         task_dozer.tasks[index + 1] = this;
         task_dozer.schedule_ui_repaint();
     }
+
+    move_to_top() {
+        if(!task_dozer) { return; }
+        const index = task_dozer.tasks.indexOf(this);
+        if(index === -1) { throw new Error("Task not found on the task list"); }
+        if(index === 0) { return; }
+        task_dozer.tasks.splice(index, 1);
+        task_dozer.tasks.unshift(this);
+        task_dozer.schedule_ui_repaint();
+    }
+
+    move_to_bottom() {
+        if(!task_dozer) { return; }
+        const index = task_dozer.tasks.indexOf(this);
+        if(index === -1) { throw new Error("Task not found on the task list"); }
+        if(index === task_dozer.tasks.length - 1) { return; }
+        task_dozer.tasks.splice(index, 1);
+        task_dozer.tasks.push(this);
+        task_dozer.schedule_ui_repaint();
+    }
 }
 
 export class TaskDozerStatus implements RendererInitializationData {
     public mime_type = 'application/x-taskdozer-status';
-    constructor(public tasks: ITask[]) {}
+    constructor(public tasks: ITask[], public enabled: boolean) {}
 }
 
 let task_dozer: TaskDozer | undefined;
@@ -92,6 +112,7 @@ let task_dozer: TaskDozer | undefined;
 export class TaskDozer {
     tasks: Task[] = [];
     activeTask: Task | undefined;
+    enabled: boolean = true;
 
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
@@ -129,11 +150,23 @@ export class TaskDozer {
                 await messageChannel.postMessage({
                     type: 'statusUpdated',
                     tasks: [...this.tasks],
+                    enabled: this.enabled,
                 } as MessageToRenderer);
             })
         );
         messageChannel.onDidReceiveMessage(evt => {
             const msg = evt.message as MessageFromRenderer;
+
+            switch (msg.type) {
+                case 'enable':
+                    this.enable();
+                    return;
+                case 'disable':
+                    this.disable();
+                    return;
+                default:
+                    break;
+            }
 
             const task = this.tasks.find(t => t.id === msg.id);
             switch (msg.type) {
@@ -143,14 +176,20 @@ export class TaskDozer {
                 case 'resume':
                     task?.resume();
                     break;
+                case 'delete':
+                    task?.delete();
+                    break;
                 case 'moveUp':
                     task?.move_up();
                     break;
                 case 'moveDown':
                     task?.move_down();
                     break;
-                case 'delete':
-                    task?.delete();
+                case 'moveToTop':
+                    task?.move_to_top();
+                    break;
+                case 'moveToBottom':
+                    task?.move_to_bottom();
                     break;
             }
         });
@@ -158,14 +197,16 @@ export class TaskDozer {
 
     private async worker() {
         while (true) {
-            if (this.getFirstQueuedTask() === undefined) {
+            while (!this.enabled || this.getFirstQueuedTask() === undefined) {
                 await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
                 this.wakeupWorker = undefined;
-                continue;
             }
 
             try {
                 const rx = await this._clineController.run(() => {
+                    if (!this.enabled) {
+                        return;
+                    }
                     const task = this.getFirstQueuedTask();
                     if (task === undefined) {
                         return;
@@ -178,8 +219,8 @@ export class TaskDozer {
                 });
 
                 if (rx === undefined) {
-                    // There is no queued task (probably one was deleted or paused),
-                    // so we need to wait for the next one.
+                    // There is no queued task (probably one was deleted or paused)
+                    // or TaskDozer is disabled, so we need to wait more.
                     continue;
                 }
 
@@ -252,8 +293,19 @@ export class TaskDozer {
         return this.tasks.filter(t => t.status === 'paused');
     }
 
+    enable() {
+        this.enabled = true;
+        this.wakeupWorker?.();
+        this.schedule_ui_repaint();
+    }
+
+    disable() {
+        this.enabled = false;
+        this.schedule_ui_repaint();
+    }
+
     status(): TaskDozerStatus {
-        return new TaskDozerStatus([...this.tasks]);
+        return new TaskDozerStatus([...this.tasks], this.enabled);
     }
 
     async showRooCodeSidebar(): Promise<void> {
