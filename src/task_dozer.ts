@@ -2,10 +2,12 @@ import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
 import { ClineController, type Message } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus } from './shared';
+import { PromptExtractor } from './prompt_extractor';
 
 export class Task implements ITask {
     id: string;
     prompt: string;
+    summary: string[];
     cmd_before: string | undefined;
     cmd_after: string | undefined;
     conversation: Message[] = [];
@@ -16,6 +18,9 @@ export class Task implements ITask {
         this.prompt = prompt;
         this.cmd_before = cmd_before;
         this.cmd_after = cmd_after;
+
+        const score = prompt_extractor.score(prompt);
+        this.summary = prompt_extractor.summary(prompt, score, 30);
     }
 
     pause() {
@@ -100,6 +105,10 @@ export class Task implements ITask {
         task_dozer.tasks.push(this);
         task_dozer.schedule_ui_repaint();
     }
+
+    conversation_as_json(): string {
+        return JSON.stringify(this.conversation);
+    }
 }
 
 export class TaskDozerStatus implements RendererInitializationData {
@@ -108,6 +117,7 @@ export class TaskDozerStatus implements RendererInitializationData {
 }
 
 let task_dozer: TaskDozer | undefined;
+let prompt_extractor: PromptExtractor = new PromptExtractor();
 
 export class TaskDozer {
     tasks: Task[] = [];
@@ -258,20 +268,23 @@ export class TaskDozer {
         }, 1500);
     }
 
-    add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined, fire_event: boolean = true): Task {
-        this.showRooCodeSidebar();
-        const task = new Task(prompt, cmd_before, cmd_after);
-        this.tasks.push(task);
-        if (fire_event) {
-            this.schedule_ui_repaint();
-            this.wakeupWorker?.();
-        }
-        return task;
+    add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined): Task {
+        return this.add_tasks([prompt], cmd_before, cmd_after)[0];
     }
 
     add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
         this.showRooCodeSidebar();
-        const result = [...tasks].map(prompt => this.add_task(prompt, cmd_before, cmd_after, false));
+
+        for (const prompt of tasks) {
+            prompt_extractor.insert(prompt);
+        }
+
+        const result = [...tasks].map(prompt => {
+            const task = new Task(prompt, cmd_before, cmd_after);
+            this.tasks.push(task);
+            return task;
+        });
+        
         this.schedule_ui_repaint();
         this.wakeupWorker?.();
         return result;

@@ -114,7 +114,7 @@ function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message:
     return <div className='task-container'>
         <div className={ "task " + task.status }>
             <span className="task-id">#{task.id}</span>
-            <span className="task-prompt">{task.prompt}</span>
+            <span className="task-prompt">{task.summary.join('...')}</span>
             <span className="task-buttons">
                 {pauseButton}
                 {resumeButton}
