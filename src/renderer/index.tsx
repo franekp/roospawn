@@ -94,18 +94,14 @@ function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message:
         }}>Resume</button>;
     }
 
-    let moveUpButton = <button onClick={() => {
-        postMessage({
-            type: 'moveUp',
-            id: task.id
-        });
+    let moveUpButton = <button onClick={(evt) => {
+        const type = evt.shiftKey ? 'moveToTop' : 'moveUp';
+        postMessage({ type, id: task.id });
     }}>Up</button>;
 
-    let moveDownButton = <button onClick={() => {
-        postMessage({
-            type: 'moveDown',
-            id: task.id
-        });
+    let moveDownButton = <button onClick={(evt) => {
+        const type = evt.shiftKey ? 'moveToBottom' : 'moveDown';
+        postMessage({ type, id: task.id });
     }}>Down</button>;
 
     let deleteButton = <button onClick={() => {
