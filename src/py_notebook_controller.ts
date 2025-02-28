@@ -111,7 +111,7 @@ export class PyNotebookController {
 
             if (result instanceof TaskDozerStatus) {
                 this._current_execution.appendOutputItems([
-                    vscode.NotebookCellOutputItem.json({tasks: result.tasks}, result.mime_type)
+                    vscode.NotebookCellOutputItem.json({tasks: result.tasks, enabled: result.enabled}, result.mime_type)
                 ], this._current_output!);
             } else if (result instanceof this._pyodide.ffi.PyProxy) {
                 const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));

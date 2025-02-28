@@ -10,14 +10,18 @@ export interface ITask {
 
 export interface RendererInitializationData {
     tasks: ITask[];
+    enabled: boolean;
 }
 
 export type MessageFromRenderer = {
-    type: 'moveUp' | 'moveDown' | 'delete' | 'pause' | 'resume',
+    type: 'pause' | 'resume' | 'delete' | 'moveUp' | 'moveDown' | 'moveToTop' | 'moveToBottom',
     id: string,
+} | {
+    type: 'enable' | 'disable'
 };
 
 export type MessageToRenderer = {
     type: 'statusUpdated',
     tasks: ITask[],
+    enabled: boolean,
 };
