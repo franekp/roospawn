@@ -1,4 +1,4 @@
-const WINDOW_SIZE = 10;
+const WINDOW_SIZE = 32;
 
 export class PromptExtractor {
     fragmentFrequencies: Map<string, number> = new Map();
@@ -13,6 +13,10 @@ export class PromptExtractor {
 
     score(prompt: string): number[] {
         const scores: number[] = [];
+
+        // A clever "circular buffer", contains scores (frequencies) of all windows
+        // that contain current character, where the score of window
+        // that starts at current character i is at index i % WINDOW_SIZE.
         const activeFrequencies: number[] = [];
 
         for (let i = 0; i < WINDOW_SIZE; i++) {
