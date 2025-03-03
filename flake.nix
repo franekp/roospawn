@@ -1,5 +1,5 @@
 {
-  description = "TaskDozer";
+  description = "RooSpawn";
 
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";

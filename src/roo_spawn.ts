@@ -31,8 +31,8 @@ export class Task implements ITask {
         if (this.status === 'completed') { return; }
         if (this.status === 'queued') {
             this.status = 'paused';
-            if (task_dozer) {
-                task_dozer.schedule_ui_repaint();
+            if (roospawn) {
+                roospawn.schedule_ui_repaint();
             }
         }
     }
@@ -44,9 +44,9 @@ export class Task implements ITask {
         if (this.status === 'active') { return; }
         if (this.status === 'paused') {
             this.status = 'queued';
-            if (task_dozer) {
-                task_dozer.schedule_ui_repaint();
-                task_dozer.wakeupWorker?.();
+            if (roospawn) {
+                roospawn.schedule_ui_repaint();
+                roospawn.wakeupWorker?.();
             }
         }
         if (this.status === 'completed') { return; }
@@ -58,52 +58,52 @@ export class Task implements ITask {
             throw new Error('Cannot delete active task');
         }
         this.status = 'deleted';
-        if (task_dozer) {
-            task_dozer.tasks = task_dozer.tasks.filter(t => t !== this);
-            task_dozer.schedule_ui_repaint();
+        if (roospawn) {
+            roospawn.tasks = roospawn.tasks.filter(t => t !== this);
+            roospawn.schedule_ui_repaint();
         }
     }
 
     remove() { this.delete(); }
 
     move_up() {
-        if(!task_dozer) { return; }
-        const index = task_dozer.tasks.indexOf(this);
+        if(!roospawn) { return; }
+        const index = roospawn.tasks.indexOf(this);
         if(index === -1) { throw new Error("Task not found on the task list"); }
         if(index === 0) { return; }
-        task_dozer.tasks[index] = task_dozer.tasks[index - 1];
-        task_dozer.tasks[index - 1] = this;
-        task_dozer.schedule_ui_repaint();
+        roospawn.tasks[index] = roospawn.tasks[index - 1];
+        roospawn.tasks[index - 1] = this;
+        roospawn.schedule_ui_repaint();
     }
     
     move_down() {
-        if(!task_dozer) { return; }
-        const index = task_dozer.tasks.indexOf(this);
+        if(!roospawn) { return; }
+        const index = roospawn.tasks.indexOf(this);
         if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === task_dozer.tasks.length - 1) { return; }
-        task_dozer.tasks[index] = task_dozer.tasks[index + 1];
-        task_dozer.tasks[index + 1] = this;
-        task_dozer.schedule_ui_repaint();
+        if(index === roospawn.tasks.length - 1) { return; }
+        roospawn.tasks[index] = roospawn.tasks[index + 1];
+        roospawn.tasks[index + 1] = this;
+        roospawn.schedule_ui_repaint();
     }
 
     move_to_top() {
-        if(!task_dozer) { return; }
-        const index = task_dozer.tasks.indexOf(this);
+        if(!roospawn) { return; }
+        const index = roospawn.tasks.indexOf(this);
         if(index === -1) { throw new Error("Task not found on the task list"); }
         if(index === 0) { return; }
-        task_dozer.tasks.splice(index, 1);
-        task_dozer.tasks.unshift(this);
-        task_dozer.schedule_ui_repaint();
+        roospawn.tasks.splice(index, 1);
+        roospawn.tasks.unshift(this);
+        roospawn.schedule_ui_repaint();
     }
 
     move_to_bottom() {
-        if(!task_dozer) { return; }
-        const index = task_dozer.tasks.indexOf(this);
+        if(!roospawn) { return; }
+        const index = roospawn.tasks.indexOf(this);
         if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === task_dozer.tasks.length - 1) { return; }
-        task_dozer.tasks.splice(index, 1);
-        task_dozer.tasks.push(this);
-        task_dozer.schedule_ui_repaint();
+        if(index === roospawn.tasks.length - 1) { return; }
+        roospawn.tasks.splice(index, 1);
+        roospawn.tasks.push(this);
+        roospawn.schedule_ui_repaint();
     }
 
     conversation_as_json(): string {
@@ -111,15 +111,15 @@ export class Task implements ITask {
     }
 }
 
-export class TaskDozerStatus implements RendererInitializationData {
-    public mime_type = 'application/x-taskdozer-status';
+export class RooSpawnStatus implements RendererInitializationData {
+    public mime_type = 'application/x-roospawn-status';
     constructor(public tasks: ITask[], public enabled: boolean) {}
 }
 
-let task_dozer: TaskDozer | undefined;
+let roospawn: RooSpawn | undefined;
 let prompt_extractor: PromptExtractor = new PromptExtractor();
 
-export class TaskDozer {
+export class RooSpawn {
     tasks: Task[] = [];
     activeTask: Task | undefined;
     enabled: boolean = true;
@@ -135,26 +135,26 @@ export class TaskDozer {
         private readonly _clineController: ClineController
     ) {
         this.worker();
-        this.outputChannel.appendLine('TaskDozer initialized');
-        task_dozer = this;
+        this.outputChannel.appendLine('RooSpawn initialized');
+        roospawn = this;
         {
             // Register command to pause all tasks
             extensionContext.subscriptions.push(
-                vscode.commands.registerCommand('taskdozer.pauseAllTasks', () => {
+                vscode.commands.registerCommand('roospawn.pauseAllTasks', () => {
                     [...this.tasks].filter(t => t.status === 'queued').forEach(task => task.pause());
                     this.outputChannel.appendLine('Paused all tasks');
                 })
             );
             // Register command to resume all tasks
             extensionContext.subscriptions.push(
-                vscode.commands.registerCommand('taskdozer.resumeAllTasks', () => {
+                vscode.commands.registerCommand('roospawn.resumeAllTasks', () => {
                     [...this.tasks].filter(t => t.status === 'paused').forEach(task => task.resume());
                     this.outputChannel.appendLine('Resumed all tasks');
                 })
             );
         }
         // Set up renderer messaging
-        const messageChannel = vscode.notebooks.createRendererMessaging('taskdozer-status-renderer');
+        const messageChannel = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
         this.extensionContext.subscriptions.push(
             this.tasks_updated(async () => {
                 await messageChannel.postMessage({
@@ -231,7 +231,7 @@ export class TaskDozer {
 
                 if (rx === undefined) {
                     // There is no queued task (probably one was deleted or paused)
-                    // or TaskDozer is disabled, so we need to wait more.
+                    // or RooSpawn is disabled, so we need to wait more.
                     continue;
                 }
 
@@ -321,8 +321,8 @@ export class TaskDozer {
         this.schedule_ui_repaint();
     }
 
-    status(): TaskDozerStatus {
-        return new TaskDozerStatus([...this.tasks], this.enabled);
+    status(): RooSpawnStatus {
+        return new RooSpawnStatus([...this.tasks], this.enabled);
     }
 
     async showRooCodeSidebar(): Promise<void> {

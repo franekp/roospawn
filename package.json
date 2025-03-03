@@ -1,6 +1,6 @@
 {
-  "name": "taskdozer",
-  "displayName": "TaskDozer",
+  "name": "roospawn",
+  "displayName": "RooSpawn",
   "description": "",
   "version": "0.0.1",
   "engines": {
@@ -10,21 +10,21 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:taskdozer",
-    "onRenderer:taskdozer-status-renderer"
+    "onNotebook:roospawn",
+    "onRenderer:roospawn-status-renderer"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "taskdozer.helloWorld",
-        "title": "TaskDozer: Hello World"
+        "command": "roospawn.helloWorld",
+        "title": "RooSpawn: Hello World"
       }
     ],
     "notebooks": [
       {
-        "type": "taskdozer",
-        "displayName": "TaskDozer Notebook",
+        "type": "roospawn",
+        "displayName": "RooSpawn Notebook",
         "selector": [
           {
             "filenamePattern": "*.dozer"
@@ -34,11 +34,11 @@
     ],
     "notebookRenderer": [
       {
-        "id": "taskdozer-status-renderer",
-        "displayName": "TaskDozer Status Renderer",
+        "id": "roospawn-status-renderer",
+        "displayName": "RooSpawn Status Renderer",
         "entrypoint": "./dist-renderer/renderer.js",
         "mimeTypes": [
-          "application/x-taskdozer-status"
+          "application/x-roospawn-status"
         ],
         "requiresMessaging": "always"
       }

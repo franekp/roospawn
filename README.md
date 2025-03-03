@@ -2,9 +2,9 @@
 2. trzeba zdisable'ować toola add_new_task, bo on będzie interferować z naszym demonem podającym taski z kolejki
 
 
-# TaskDozer README
+# RooSpawn README
 
-This is the README for your extension "TaskDozer". After writing up a brief description, we recommend including the following sections.
+This is the README for your extension "RooSpawn". After writing up a brief description, we recommend including the following sections.
 
 ## Features
 

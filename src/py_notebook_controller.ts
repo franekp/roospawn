@@ -3,12 +3,12 @@ import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as pyodide from 'pyodide';
 import * as path from 'path';
-import { TaskDozer, TaskDozerStatus } from './task_dozer';
+import { RooSpawn, RooSpawnStatus } from './roo_spawn';
 
 export class PyNotebookController {
-    readonly controllerId = 'taskdozer-controller';
-    readonly notebookType = 'taskdozer';
-    readonly label = 'TaskDozer Python';
+    readonly controllerId = 'roospawn-controller';
+    readonly notebookType = 'roospawn';
+    readonly label = 'RooSpawn Python';
     readonly supportedLanguages = ['python'];
 
     private _stdout_stderr: vscode.NotebookCellOutputItem[] = [];
@@ -22,7 +22,7 @@ export class PyNotebookController {
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         private readonly _outputChannel: vscode.OutputChannel,
-        private readonly _taskDozer: TaskDozer
+        private readonly _rooSpawn: RooSpawn
     ) {
         this._controller = vscode.notebooks.createNotebookController(
             this.controllerId,
@@ -68,7 +68,7 @@ export class PyNotebookController {
                 }
             });
 
-            this._pyodide.registerJsModule('taskdozer', this._taskDozer);
+            this._pyodide.registerJsModule('roospawn', this._rooSpawn);
 
             this._outputChannel.appendLine('Pyodide initialized successfully');
         } catch (error) {
@@ -109,7 +109,7 @@ export class PyNotebookController {
 
             const result = await this._pyodide.runPythonAsync(code);
 
-            if (result instanceof TaskDozerStatus) {
+            if (result instanceof RooSpawnStatus) {
                 this._current_execution.appendOutputItems([
                     vscode.NotebookCellOutputItem.json({tasks: result.tasks, enabled: result.enabled}, result.mime_type)
                 ], this._current_output!);

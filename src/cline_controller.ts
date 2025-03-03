@@ -1,6 +1,6 @@
 import { Channel, Waiters, Waiter, timeout } from './async_utils';
 import { Cline, ClineAsk, ClineProvider, ClineSay } from './cline';
-import { Task } from './task_dozer'; 
+import { Task } from './roo_spawn'; 
 
 export type MessageType = { type: 'say', say: ClineSay } | { type: 'ask', ask: ClineAsk };
 export type ExitReason = 'completed' | 'aborted' | 'hanging' | 'thrown-exception';

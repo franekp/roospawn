@@ -2,7 +2,7 @@
   "cells": [
     {
       "kind": "markdown",
-      "value": "# TaskDozer\n\n### Basic usage\n\nUse `td.add_tasks()` or `td.add_task()` to spawn new tasks. Keep one cell with `td.status()` to observe live preview of the queue.",
+      "value": "# RooSpawn\n\n### Basic usage\n\nUse `td.add_tasks()` or `td.add_task()` to spawn new tasks. Keep one cell with `td.status()` to observe live preview of the queue.",
       "language": "markdown"
     },
     {
@@ -27,12 +27,12 @@
     },
     {
       "kind": "code",
-      "value": "import taskdozer as td\ntd.status()",
+      "value": "import roospawn as td\ntd.status()",
       "language": "python"
     },
     {
       "kind": "code",
-      "value": "import taskdozer as td\n\n# Create some example tasks\n[a, b, c] = td.add_tasks([\n    \"Please, calculate for me the sum of the numbers 1 and 2\",\n    \"Please, calculate for me the sum of the numbers 3 and 4\",\n    \"Please, calculate for me the sum of the numbers 5 and 6\"\n], None, None)\n\na.pause()\nb.pause()\nc.pause()",
+      "value": "import roospawn as td\n\n# Create some example tasks\nl = td.add_tasks([\n    \"Please, write function that calculates the fibbonacii sequence\",\n    \"Please, calculate for me the sum of the numbers 1 and 2\",\n    \"Please, calculate for me the sum of the numbers 3 and 4\",\n    \"Please, calculate for me the sum of the numbers 5 and 6\"\n], None, None)",
       "language": "python"
     },
     {
@@ -42,7 +42,7 @@
     },
     {
       "kind": "code",
-      "value": "# Complete the active task and show updated status\na.conversation_as_json()",
+      "value": "# Complete the active task and show updated status\nl[0].conversation_as_json()\n\nimport sys\nprint(sys.version)",
       "language": "python"
     }
   ]

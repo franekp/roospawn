@@ -1,22 +1,22 @@
-# TaskDozer Status Renderer Implementation Plan
+# RooSpawn Status Renderer Implementation Plan
 
 ## 1. Custom Mime Type
 
 Define a custom mime type for task status:
 ```
-application/x-taskdozer-status
+application/x-roospawn-status
 ```
 
 This mime type will be used to identify task status output in notebook cells.
 
-## 2. TaskDozer.status() Method
+## 2. RooSpawn.status() Method
 
-Add a method to TaskDozer class that returns the current status with the custom mime type:
+Add a method to RooSpawn class that returns the current status with the custom mime type:
 
 ```typescript
 status(): any {
     return {
-        ["application/x-taskdozer-status"]: {
+        ["application/x-roospawn-status"]: {
             html: this.render_status_html()
         }
     };
@@ -26,7 +26,7 @@ status(): any {
 ## 3. Notebook Renderer
 
 Create a notebook renderer that:
-- Registers for the `application/x-taskdozer-status` mime type
+- Registers for the `application/x-roospawn-status` mime type
 - Uses the HTML content from the output data
 - Implements live updates using the VS Code notebook renderer messaging API
 
@@ -35,11 +35,11 @@ Create a notebook renderer that:
 {
     "contributes": {
         "notebookRenderer": [{
-            "id": "taskdozer-status-renderer",
-            "displayName": "TaskDozer Status Renderer",
+            "id": "roospawn-status-renderer",
+            "displayName": "RooSpawn Status Renderer",
             "entrypoint": "./out/renderer.js",
             "mimeTypes": [
-                "application/x-taskdozer-status"
+                "application/x-roospawn-status"
             ]
         }]
     }
@@ -54,7 +54,7 @@ export const activate: ActivationFunction = (context) => ({
     renderOutputItem(data, element) {
         // Create container for the status HTML
         const container = document.createElement('div');
-        container.id = 'taskdozer-status-container';
+        container.id = 'roospawn-status-container';
         element.appendChild(container);
         
         // Initial render
@@ -77,7 +77,7 @@ export const activate: ActivationFunction = (context) => ({
 2. Extension Host Communication:
 ```typescript
 // In extension.ts
-const messageChannel = notebooks.createRendererMessaging('taskdozer-status-renderer');
+const messageChannel = notebooks.createRendererMessaging('roospawn-status-renderer');
 
 // When tasks are updated
 this._tasks_updated.event(() => {
@@ -99,7 +99,7 @@ disposeOutputItem(id) {
 
 1. Set up communication channel between the renderer and extension:
 ```typescript
-const messageChannel = notebooks.createRendererMessaging('taskdozer-status-renderer');
+const messageChannel = notebooks.createRendererMessaging('roospawn-status-renderer');
 ```
 
 2. Send status updates when tasks change:
@@ -114,9 +114,9 @@ this._tasks_updated.event(() => {
 
 ## Implementation Steps
 
-1. Add status() method to TaskDozer class
+1. Add status() method to RooSpawn class
 2. Create renderer implementation files:
-   - src/renderer/taskdozer-status.ts (main renderer code)
+   - src/renderer/roospawn-status.ts (main renderer code)
    - src/renderer/index.ts (entry point)
 3. Update package.json with renderer contribution
 4. Implement extension host messaging
@@ -126,7 +126,7 @@ this._tasks_updated.event(() => {
 
 1. Basic rendering:
    ```python
-   taskdozer.status()
+   roospawn.status()
    ```
 
 2. Live updates:
