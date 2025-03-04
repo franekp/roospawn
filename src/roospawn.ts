@@ -19,8 +19,8 @@ export class Task implements ITask {
         this.cmd_before = cmd_before;
         this.cmd_after = cmd_after;
 
-        const score = prompt_extractor.score(prompt);
-        this.summary = prompt_extractor.summary(prompt, score, 30);
+        const score = prompt_summarizer.score(prompt);
+        this.summary = prompt_summarizer.summary(prompt, score, 30);
     }
 
     pause() {
@@ -117,7 +117,7 @@ export class RooSpawnStatus implements RendererInitializationData {
 }
 
 let roospawn: RooSpawn | undefined;
-let prompt_extractor: PromptSummarizer = new PromptSummarizer();
+let prompt_summarizer: PromptSummarizer = new PromptSummarizer();
 
 export class RooSpawn {
     tasks: Task[] = [];
@@ -280,7 +280,7 @@ export class RooSpawn {
         this.showRooCodeSidebar();
 
         for (const prompt of tasks) {
-            prompt_extractor.insert(prompt);
+            prompt_summarizer.insert(prompt);
         }
 
         const result = [...tasks].map(prompt => {
