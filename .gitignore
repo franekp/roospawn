@@ -4,4 +4,5 @@ dist-renderer
 node_modules
 .vscode-test/
 *.vsix
-resources/
+resources/pyodide
+

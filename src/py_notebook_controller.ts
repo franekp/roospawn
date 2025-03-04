@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import process from 'process';
+import * as fs from 'fs/promises';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as pyodide from 'pyodide';
 import * as path from 'path';
@@ -68,7 +69,13 @@ export class PyNotebookController {
                 }
             });
 
-            this._pyodide.registerJsModule('roospawn', this._rooSpawn);
+            this._pyodide.registerJsModule('_roospawn', this._rooSpawn);
+
+            const roospawn_py_path = path.join(this.extensionContext.extensionPath, 'resources', 'roospawn.py');
+
+            const roospawn_py = await fs.readFile(roospawn_py_path, 'utf8');
+
+            this._pyodide.FS.writeFile('/home/pyodide/roospawn.py', roospawn_py);
 
             this._outputChannel.appendLine('Pyodide initialized successfully');
         } catch (error) {

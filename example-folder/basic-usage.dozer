@@ -12,6 +12,11 @@
     },
     {
       "kind": "code",
+      "value": "import roospawn as rsp\nrsp.hello()",
+      "language": "python"
+    },
+    {
+      "kind": "code",
       "value": "dict(html=\"<h1>Test asdf</h1>\")",
       "language": "python"
     },
