@@ -1,6 +1,6 @@
 const WINDOW_SIZE = 32;
 
-export class PromptExtractor {
+export class PromptSummarizer {
     fragmentFrequencies: Map<string, number> = new Map();
  
     insert(prompt: string) {

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
 import { ClineController, ExitReason, type Message } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus } from './shared';
-import { PromptExtractor } from './prompt_extractor';
+import { PromptSummarizer } from './prompt_summarizer';
 
 export class Task implements ITask {
     id: string;
@@ -117,7 +117,7 @@ export class RooSpawnStatus implements RendererInitializationData {
 }
 
 let roospawn: RooSpawn | undefined;
-let prompt_extractor: PromptExtractor = new PromptExtractor();
+let prompt_extractor: PromptSummarizer = new PromptSummarizer();
 
 export class RooSpawn {
     tasks: Task[] = [];

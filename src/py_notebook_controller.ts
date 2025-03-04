@@ -3,7 +3,7 @@ import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as pyodide from 'pyodide';
 import * as path from 'path';
-import { RooSpawn, RooSpawnStatus } from './roo_spawn';
+import { RooSpawn, RooSpawnStatus } from './roospawn';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
 import { ClineController } from './cline_controller';
-import { RooSpawn } from './roo_spawn';
+import { RooSpawn } from './roospawn';
 
 export async function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('Task Dozer');
