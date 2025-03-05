@@ -4,6 +4,10 @@ import { ClineController, ExitReason, type Message } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 
+function clean_whitespace(str: string): string {
+    return str.replace(/\s+/g, ' ').trim();
+}
+
 export class Task implements ITask {
     id: string;
     prompt: string;
@@ -19,8 +23,9 @@ export class Task implements ITask {
         this.mode = mode;
         this.hooks = hooks;
 
+        prompt = clean_whitespace(prompt);
         const score = prompt_summarizer.score(prompt);
-        this.summary = prompt_summarizer.summary(prompt, score, 68);
+        this.summary = prompt_summarizer.summary(prompt, score, 65);
     }
 
     pause() {
@@ -304,7 +309,7 @@ export class RooSpawn {
         this.showRooCodeSidebar();
 
         for (const prompt of prompts) {
-            prompt_summarizer.insert(prompt);
+            prompt_summarizer.insert(clean_whitespace(prompt));
         }
 
         const result = [...prompts].map(prompt => {
@@ -414,7 +419,7 @@ export class RooSpawn {
         }
 
         for (const prompt of prompts) {
-            prompt_summarizer.insert(prompt);
+            prompt_summarizer.insert(clean_whitespace(prompt));
         }
 
         for (const [i, prompt] of prompts.entries()) {
