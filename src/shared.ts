@@ -1,4 +1,4 @@
-import { Task } from "./roo_spawn";
+import { Task } from "./roospawn";
 
 export type TaskStatus =
     | 'prepared' | 'queued' | 'running' | 'paused' | 'completed' | 'waiting-for-input' | 'aborted'
