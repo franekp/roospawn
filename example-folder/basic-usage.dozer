@@ -2,18 +2,33 @@
   "cells": [
     {
       "kind": "markdown",
-      "value": "# RooSpawn\n\n### Basic usage\n\nUse `td.add_tasks()` or `td.add_task()` to spawn new tasks. Keep one cell with `td.status()` to observe live preview of the queue.",
+      "value": "# RooSpawn\n\n### Basic usage",
       "language": "markdown"
     },
     {
       "kind": "code",
-      "value": "\"asdf\"",
+      "value": "import roospawn as rsp\n\n@rsp.onstart\ndef onstart(task):\n    print(\"Task started\", task)\n    return f\"Task started: {task.id}\"\n\n@rsp.oncomplete\ndef oncomplete(task):\n    print(\"Task completed\", task)\n    return f\"Task completed: {task.id}\"\n\nrsp.live_preview()",
       "language": "python"
     },
     {
       "kind": "code",
-      "value": "import roospawn as rsp\nrsp.hello()",
+      "value": "[task] = rsp.create_tasks([\"Please, calculate 2+2\"], mode=\"code\")",
       "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "task.submit()",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "[other_task] = rsp.submit_tasks([\"Please, calculate 3+3\"])",
+      "language": "python"
+    },
+    {
+      "kind": "markdown",
+      "value": "# Franek notebook",
+      "language": "markdown"
     },
     {
       "kind": "code",
