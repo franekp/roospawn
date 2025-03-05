@@ -89,3 +89,7 @@ def submit_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] 
     for task in tasks:
         task.submit()
     return tasks
+
+def develop():
+    api.develop()
+    return api.livePreview()

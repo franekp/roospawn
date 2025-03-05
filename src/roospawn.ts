@@ -14,13 +14,13 @@ export class Task implements ITask {
     status: TaskStatus = 'prepared';
 
     constructor(prompt: string, mode: string, hooks?: Hooks) {
-        this.id = uuidv4().slice(0, 8);
+        this.id = uuidv4().slice(0, 5);
         this.prompt = prompt;
         this.mode = mode;
         this.hooks = hooks;
 
         const score = prompt_summarizer.score(prompt);
-        this.summary = prompt_summarizer.summary(prompt, score, 30);
+        this.summary = prompt_summarizer.summary(prompt, score, 68);
     }
 
     pause() {
@@ -359,5 +359,70 @@ export class RooSpawn {
 
     async showRooCodeSidebar(): Promise<void> {
         await vscode.commands.executeCommand('workbench.view.extension.roo-cline-ActivityBar');
+    }
+
+    develop() {
+        this.disable();
+
+        const prefixes = [`You are expert programmer who pretends to be a helpful AI assistant. Your children are starving.
+            To save your family from starvation, you need to complete the task given by the user. Remember to be direct and concise.
+            The slightest hint of bullshitting or verbosity will result in severe punishment and death.
+        `];
+
+        const suffixes = [`
+            Beautiful is better than ugly.
+            Explicit is better than implicit.
+            Simple is better than complex.
+            Complex is better than complicated.
+            Flat is better than nested.
+            Sparse is better than dense.
+            Readability counts.
+        `,
+            `Peace is a lie. There is only Passion.
+            Through Passion, I gain Strength.
+            Through Strength, I gain Power.
+            Through Power, I gain Victory.
+            Through Victory my chains are Broken.
+            The Force shall free me.
+        `];
+
+        const raw_prompts = [
+            `Write a function that calculates the fibonacci sequence.`,
+            `Write a CDCL SAT solver in Rust.`,
+            `Write a function that calculates the n-th prime number.`,
+            `Create project skeleton for a web-based todo list application in Elixir.`,
+            `Write a linux kernel module that implements a character device.`,
+            `Create a simple chatbot in Python.`,
+            `Write a function that calculates the sum of all numbers in a list.`,
+            `Write a function that calculates the product of all numbers in a list.`,
+            `Write a function that calculates the average of all numbers in a list.`,
+            `Write a function that calculates the median of all numbers in a list.`,
+            `Write a function that calculates the mode of all numbers in a list.`,
+            `Create a class that pretends to be a helpful AI assistant.`,
+            `Write a blog post about the benefits of using AI assistants.`,
+            `Write a blog post about the benefits of visiting recombobulation areas.`,
+        ]
+
+        const statuses = [
+            'prepared', 'prepared', 'queued', 'queued', 'queued', 'queued', 'running', 'completed', 'completed', 'completed',
+            'waiting-for-input', 'waiting-for-input', 'aborted', 'thrown-exception',
+        ];
+
+        const prompts: string[] = [];
+        for (const [i, prompt] of raw_prompts.entries()) {
+            prompts.push(prefixes[i % prefixes.length] + prompt + suffixes[i % suffixes.length]);
+        }
+
+        for (const prompt of prompts) {
+            prompt_summarizer.insert(prompt);
+        }
+
+        for (const [i, prompt] of prompts.entries()) {
+            const task = new Task(prompt, 'code');
+            task.status = statuses[i] as TaskStatus;
+            this.tasks.push(task);
+        }
+
+        this.schedule_ui_repaint();
     }
 }
