@@ -43,7 +43,7 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
         return () => disposable?.dispose();
     }, [context]);
 
-    let enableButton: React.ReactNode | undefined;
+    let enableButton: React.ReactNode;
     if (enabled) {
         enableButton = <button onClick={() => {
             context.postMessage?.({
@@ -85,7 +85,7 @@ function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message:
     }
 
     let resumeButton: React.ReactNode | undefined = undefined;
-    if (task.status === 'paused') {
+    if (task.status === 'prepared') {
         resumeButton = <button onClick={() => {
             postMessage({
                 type: 'resume',
@@ -132,7 +132,7 @@ const styles = `
 .task-id { font-size: 0.8em; opacity: 0.7; margin-right: 4px; }
 .task-prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; display: inline-block; }
 .task-buttons { display: inline-block; float: right; }
-.active { 
+.running { 
     background: linear-gradient(270deg, #ff9933, #ffb366);
     background-size: 200% 100%;
     color: white;
@@ -148,5 +148,5 @@ const styles = `
 .aborted { background: #ff00ff; color: white; }
 .hanging { background: #0000ff; color: white; }
 .thrown-exception { background: #ff0000; color: white; }
-.paused { background: #808080; color: white; }
+.prepared { background: #808080; color: white; }
 `;

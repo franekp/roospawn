@@ -17,12 +17,22 @@
     },
     {
       "kind": "code",
-      "value": "dict(html=\"<h1>Test asdf</h1>\")",
+      "value": "import _roospawn as _rsp",
       "language": "python"
     },
     {
       "kind": "code",
-      "value": "\"asdf\"",
+      "value": "_rsp.status()",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "from dataclasses import dataclass\n\n@dataclass\nclass Task:\n    id: str\n    status: str\n    summary: list[str]\n\ntasks = [\n    Task(id=\"10e8\", status=\"prepared\", summary=[\"Please, write function that calculates the fibbonacii sequence\"]),\n    Task(id=\"d768\", status=\"queued\", summary=[\"Please, calculate for\", \"using only natural numbers and\", \"of the numbers 1 and 2\"]),\n    Task(id=\"e528\", status=\"running\", summary=[\"Please, calculate for\", \"using only natural numbers and\", \"of the numbers 3 and 4\"]),\n    Task(id=\"453f\", status=\"completed\", summary=[\"Please, calculate for\", \"using only natural numbers and\", \"of the numbers 5 and 6\"])\n]\n\npauseButton = \"<button>Pause</button>\"\nresumeButton = \"<button>Resume</button>\"\n\ndef render_task(task: Task) -> str:\n    moveUpButton = \"<button>Up</button>\"\n    moveDownButton = \"<button>Down</button>\"\n    deleteButton = \"<button>Delete</button>\"\n\n    return f\"\"\"\n        <div className='task-container'>\n            <div className='{ \"task \" + task.status }'>\n                <span className=\"task-id\">#{task.id}</span>\n                <span className=\"task-prompt\">{'...'.join(task.summary)}</span>\n                <span className=\"task-buttons\">\n                    {pauseButton}\n                    {resumeButton}\n                    {moveUpButton}\n                    {moveDownButton}\n                    {deleteButton}\n                </span>\n            </div>\n        </div>\n    \"\"\".replace('className', 'class')\n\nstyles = \"\"\"\n.task-container { font-family: system-ui; margin: 4px 0; }\n.task { padding: 4px 8px; border-radius: 4px; }\n.task-id { font-size: 0.8em; opacity: 0.7; margin-right: 4px; }\n.task-prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; display: inline-block; }\n.task-buttons { display: inline-block; float: right; }\n.running { \n    background: linear-gradient(270deg, #ff9933, #ffb366);\n    background-size: 200% 100%;\n    color: white;\n    animation: gradient 2s ease infinite;\n}\n@keyframes gradient {\n    0% { background-position: 0% 50%; }\n    50% { background-position: 100% 50%; }\n    100% { background-position: 0% 50%; }\n}\n.queued { background: #ffff00; color: black; }\n.completed { background: #008080; color: white; }\n.aborted { background: #ff00ff; color: white; }\n.hanging { background: #0000ff; color: white; }\n.thrown-exception { background: #ff0000; color: white; }\n.prepared { background: #808080; color: white; }\n\"\"\"\n\ndef render_preview(tasks: list[Task]) -> str:\n    tasks = \"\".join([render_task(task) for task in tasks])\n    return f\"\"\"<div>\n        <style>{styles}</style>\n        <div>{resumeButton}</div>\n        <div>{tasks}</div>\n    </div>\n    \"\"\"\n\ndict(html=render_preview(tasks))",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "_rsp.task",
       "language": "python"
     },
     {
@@ -37,7 +47,12 @@
     },
     {
       "kind": "code",
-      "value": "import roospawn as td\n\n# Create some example tasks\nl = td.add_tasks([\n    \"Please, write function that calculates the fibbonacii sequence\",\n    \"Please, calculate for me the sum of the numbers 1 and 2\",\n    \"Please, calculate for me the sum of the numbers 3 and 4\",\n    \"Please, calculate for me the sum of the numbers 5 and 6\"\n], None, None)",
+      "value": "# Create some example tasks\nl = rsp.submit_tasks([\n    \"Please, write function that calculates the fibbonacii sequence\",\n    \"Please, calculate for me the sum of the numbers 1 and 2\",\n    \"Please, calculate for me the sum of the numbers 3 and 4\",\n    \"Please, calculate for me the sum of the numbers 5 and 6\"\n])",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "_rsp.disable()",
       "language": "python"
     },
     {
@@ -47,7 +62,7 @@
     },
     {
       "kind": "code",
-      "value": "# Complete the active task and show updated status\nl[0].conversation_as_json()\n\nimport sys\nprint(sys.version)",
+      "value": "# Complete the running task and show updated status\nl[0].conversation_as_json()\n\nimport sys\nprint(sys.version)",
       "language": "python"
     }
   ]
