@@ -1,23 +1,23 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
 import { ClineController, ExitReason, type Message } from './cline_controller';
-import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus } from './shared';
+import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 
 export class Task implements ITask {
     id: string;
     prompt: string;
     summary: string[];
-    cmd_before: string | undefined;
-    cmd_after: string | undefined;
+    mode: string;
+    hooks: Hooks | undefined;
     conversation: Message[] = [];
-    status: TaskStatus = 'queued';
+    status: TaskStatus = 'prepared';
 
-    constructor(prompt: string, cmd_before?: string, cmd_after?: string) {
+    constructor(prompt: string, mode: string, hooks?: Hooks) {
         this.id = uuidv4().slice(0, 8);
         this.prompt = prompt;
-        this.cmd_before = cmd_before;
-        this.cmd_after = cmd_after;
+        this.mode = mode;
+        this.hooks = hooks;
 
         const score = prompt_summarizer.score(prompt);
         this.summary = prompt_summarizer.summary(prompt, score, 30);
@@ -57,9 +57,19 @@ export class Task implements ITask {
         if (this.status === 'running') {
             throw new Error('Cannot delete running task');
         }
-        this.status = 'deleted';
+        if (this.status === 'prepared') {
+            this.status = 'archived-prepared';
+        }
+        if (this.status === 'completed') {
+            this.status = 'archived-completed';
+        }
+        if (this.status === 'waiting-for-input') {
+            this.status = 'archived-waiting-for-input';
+        }
+        if (this.status === 'aborted') {
+            this.status = 'archived-aborted';
+        }
         if (roospawn) {
-            roospawn.tasks = roospawn.tasks.filter(t => t !== this);
             roospawn.schedule_ui_repaint();
         }
     }
@@ -109,6 +119,16 @@ export class Task implements ITask {
     conversation_as_json(): string {
         return JSON.stringify(this.conversation);
     }
+
+    submit() {
+        if (this.status === 'prepared') {
+            this.status = 'queued';
+            if (roospawn) {
+                roospawn.schedule_ui_repaint();
+                roospawn.wakeupWorker?.();
+            }
+        }
+    }
 }
 
 export class RooSpawnStatus implements RendererInitializationData {
@@ -120,8 +140,14 @@ let roospawn: RooSpawn | undefined;
 let prompt_summarizer: PromptSummarizer = new PromptSummarizer();
 
 export class RooSpawn {
+    globalHooks: Hooks = {
+        onstart: undefined,
+        oncomplete: undefined,
+        onpause: undefined,
+        onresume: undefined,
+    };
+
     tasks: Task[] = [];
-    currentlyRunningTask: Task | undefined;
     enabled: boolean = true;
 
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -137,22 +163,7 @@ export class RooSpawn {
         this.worker();
         this.outputChannel.appendLine('RooSpawn initialized');
         roospawn = this;
-        {
-            // Register command to pause all tasks
-            extensionContext.subscriptions.push(
-                vscode.commands.registerCommand('roospawn.pauseAllTasks', () => {
-                    [...this.tasks].filter(t => t.status === 'queued').forEach(task => task.pause());
-                    this.outputChannel.appendLine('prepared all tasks');
-                })
-            );
-            // Register command to resume all tasks
-            extensionContext.subscriptions.push(
-                vscode.commands.registerCommand('roospawn.resumeAllTasks', () => {
-                    [...this.tasks].filter(t => t.status === 'prepared').forEach(task => task.resume());
-                    this.outputChannel.appendLine('Resumed all tasks');
-                })
-            );
-        }
+
         // Set up renderer messaging
         const messageChannel = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
         this.extensionContext.subscriptions.push(
@@ -212,9 +223,9 @@ export class RooSpawn {
                 this.wakeupWorker = undefined;
             }
 
-            let exit_reason: ExitReason;
+            let task: Task | undefined = undefined;
             try {
-                const rx = await this._clineController.run(() => {
+                const result = await this._clineController.run(() => {
                     if (!this.enabled) {
                         return;
                     }
@@ -222,33 +233,50 @@ export class RooSpawn {
                     if (task === undefined) {
                         return;
                     }
-                    task.status = 'running';
 
-                    this.currentlyRunningTask = task;
-                    this.schedule_ui_repaint();
+                    const onstartResult = this.globalHooks.onstart !== undefined ? this.globalHooks.onstart(task) : undefined;
+                    console.log('onstartResult to execute', onstartResult);
+                    
                     return task;
                 });
 
-                if (rx === undefined) {
-                    // There is no queued task (probably one was deleted or prepared)
+                if (result === undefined) {
+                    // There is no queued task (probably one was deleted or paused)
                     // or RooSpawn is disabled, so we need to wait more.
                     continue;
                 }
 
-                let msg;
+                task = result.task;
+                task.status = 'running';
+                this.schedule_ui_repaint();
+
+                const rx = result.messages;
+
+                let msg: IteratorResult<Message, ExitReason>;
                 while (!(msg = await rx.next()).done) {
-                    this.currentlyRunningTask!.conversation.push(msg.value as Message);
+                    task.conversation.push(msg.value as Message);
                 }
-                exit_reason = msg.value as ExitReason;
-            } catch {
-                exit_reason = 'thrown-exception';
-                console.error('Error running task', this.currentlyRunningTask);
+                task.status = msg.value as ExitReason;
+                switch (task.status) {
+                    case 'completed':
+                        if (this.globalHooks.oncomplete) {
+                            const result = this.globalHooks.oncomplete(task);
+                            console.log('oncompleteResult to execute', result);
+                        }
+                        break;
+                    default:
+                        console.log('task.status', task.status);
+                        break;
+                }
+            } catch (e) {
+                if (task !== undefined) {
+                    task.status = 'thrown-exception';
+                    console.error('Error running task', task, e);
+                } else {
+                    console.error('Error in RooSpawn', e);
+                }
             }
 
-            if (this.currentlyRunningTask !== undefined) {
-                this.currentlyRunningTask.status = exit_reason;
-                this.currentlyRunningTask = undefined;
-            }
             this.schedule_ui_repaint();
         }
     }
@@ -272,34 +300,38 @@ export class RooSpawn {
         }, 1500);
     }
 
-    add_task(prompt: string, cmd_before: string | undefined, cmd_after: string | undefined): Task {
-        return this.add_tasks([prompt], cmd_before, cmd_after)[0];
-    }
-
-    add_tasks(tasks: string[], cmd_before: string | undefined, cmd_after: string | undefined): Task[] {
+    createTasks(prompts: string[], mode: string, hooks?: Hooks): Task[] {
         this.showRooCodeSidebar();
 
-        for (const prompt of tasks) {
+        for (const prompt of prompts) {
             prompt_summarizer.insert(prompt);
         }
 
-        const result = [...tasks].map(prompt => {
-            const task = new Task(prompt, cmd_before, cmd_after);
+        const result = [...prompts].map(prompt => {
+            const task = new Task(prompt, mode, hooks);
             this.tasks.push(task);
             return task;
         });
 
         this.schedule_ui_repaint();
-        this.wakeupWorker?.();
         return result;
+    }
+
+    createHooks(onstart: any, oncomplete: any, onpause: any, onresume: any): Hooks {
+        return {
+            onstart: onstart,
+            oncomplete: oncomplete,
+            onpause: onpause,
+            onresume: onresume,
+        };
     }
 
     queued_tasks(): Task[] {
         return this.tasks.filter(t => t.status === 'queued');
     }
 
-    active_task(): Task | undefined {
-        return this.currentlyRunningTask;
+    running_task(): Task | undefined {
+        return this.tasks.find(t => t.status === 'running');
     }
 
     completed_tasks(): Task[] {
@@ -321,7 +353,7 @@ export class RooSpawn {
         this.schedule_ui_repaint();
     }
 
-    status(): RooSpawnStatus {
+    livePreview(): RooSpawnStatus {
         return new RooSpawnStatus([...this.tasks], this.enabled);
     }
 

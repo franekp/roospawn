@@ -10,8 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onNotebook:roospawn",
-    "onRenderer:roospawn-status-renderer"
+    "onNotebook:roospawn"
   ],
   "main": "./dist/extension.js",
   "contributes": {

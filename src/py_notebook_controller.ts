@@ -72,9 +72,9 @@ export class PyNotebookController {
             this._pyodide.registerJsModule('_roospawn', this._rooSpawn);
 
             const roospawn_py_path = path.join(this.extensionContext.extensionPath, 'resources', 'roospawn.py');
-
             const roospawn_py = await fs.readFile(roospawn_py_path, 'utf8');
 
+            // TODO: shouldn't we write simply to 'roospawn.py'?
             this._pyodide.FS.writeFile('/home/pyodide/roospawn.py', roospawn_py);
 
             this._outputChannel.appendLine('Pyodide initialized successfully');
@@ -105,7 +105,7 @@ export class PyNotebookController {
 
         try {
             await this._initializePyodide();
-            
+
             if (!this._pyodide) {
                 throw new Error('Failed to initialize Pyodide');
             }
@@ -118,7 +118,7 @@ export class PyNotebookController {
 
             if (result instanceof RooSpawnStatus) {
                 this._current_execution.appendOutputItems([
-                    vscode.NotebookCellOutputItem.json({tasks: result.tasks, enabled: result.enabled}, result.mime_type)
+                    vscode.NotebookCellOutputItem.json({ tasks: result.tasks, enabled: result.enabled }, result.mime_type)
                 ], this._current_output!);
             } else if (result instanceof this._pyodide.ffi.PyProxy) {
                 const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));
@@ -159,20 +159,20 @@ export class PyNotebookController {
                     output = '';
                 }
                 // Create output
-                this._current_execution.appendOutputItems([ 
+                this._current_execution.appendOutputItems([
                     vscode.NotebookCellOutputItem.stdout(output + '\n')
                 ], this._current_output!);
             }
-            
+
             execution.end(true, Date.now());
             this._current_output = undefined;
             this._current_execution = undefined;
         } catch (error) {
             this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
-            
+
             // Convert non-Error objects to Error objects
             const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
-            
+
             errorObject.stack = errorObject.stack?.split('\n').filter(
                 line => !(line.includes('at wasm://wasm/') || line.includes('resources/pyodide/pyodide.asm.js')
                     || line.includes('node:internal/'))
