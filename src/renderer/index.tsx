@@ -242,10 +242,11 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         taskClasses.push('draggable');
     }
 
+    let taskWrapperClasses = ['task-wrapper'];
     if (dropTargetStatus == 'hoveredFromLeft') {
-        taskClasses.push('drop-target-right-edge');
+        taskWrapperClasses.push('drop-target-right-edge');
     } else if (dropTargetStatus == 'hoveredFromRight') {
-        taskClasses.push('drop-target-left-edge');
+        taskWrapperClasses.push('drop-target-left-edge');
     } 
 
     let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
@@ -326,37 +327,49 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         }
     };
 
-    return <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
-                onDragStart={onDragStart} onDragEnd={onDragEnd} draggable={draggable}
-                onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
-    <div className="task-status-badge">
-        {task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}
-    </div>
+    return <div className={taskWrapperClasses.join(' ')} onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+        <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
+             onDragStart={onDragStart} onDragEnd={onDragEnd} draggable={draggable}
+        >
+            <div className="task-status-badge">
+                {task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}
+            </div>
 
-    <div className="task-prompt">{task.summary.join(' ... ')}</div>
+            <div className="task-prompt">{task.summary.join(' ... ')}</div>
 
-    <div className="task-buttons">
-        {pauseButton}
-        {resumeButton}
-        {moveUpButton}
-        {moveDownButton}
-        {deleteButton}
-    </div>
-    <div className="task-id-wrapper">
-        <div className="task-id">#{task.id}</div>
-    </div>
-</div>;
+            <div className="task-buttons">
+                {pauseButton}
+                {resumeButton}
+                {moveUpButton}
+                {moveDownButton}
+                {deleteButton}
+            </div>
+            <div className="task-id-wrapper">
+                <div className="task-id">#{task.id}</div>
+            </div>
+        </div>
+    </div>;
 }
 
 const styles = `
+.task-wrapper {
+    padding-left: 4px;
+    padding-right: 4px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    margin-left: -2px;
+    margin-right: -2px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    display: inline-block;
+}
+
 .task {
     padding: 4px 8px;
     border-radius: 6px;
-    margin: 4px 4px;
     font-family: system-ui;
     width: 150px;
     height: 74px;
-    display: inline-block;
     position: relative;
     color: var(--color);
     user-select: none;
@@ -529,14 +542,11 @@ const styles = `
 .task.draggable {
     cursor: move;
 }
-.task {
-    border-right: 2px solid transparent;
-    border-left: 2px solid transparent;
+
+.task-wrapper.drop-target-right-edge {
+    border-right: 4px solid rgba(0, 150, 255);
 }
-.task.drop-target-right-edge {
-    border-right: 2px solid rgba(200, 200, 0);
-}
-.task.drop-target-left-edge {
-    border-left: 2px solid rgba(200, 200, 0);
+.task-wrapper.drop-target-left-edge {
+    border-left: 4px solid rgba(0, 150, 255);
 }
 `;
