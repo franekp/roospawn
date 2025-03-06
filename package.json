@@ -60,12 +60,13 @@
     "postinstall": "yarn download-pyodide"
   },
   "dependencies": {
+    "pyodide": "0.23.4",
     "react": "^19.0",
     "react-dom": "^19.0",
-    "pyodide": "0.23.4",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@svgr/webpack": "^8.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/react": "^19.0",
