@@ -8,6 +8,15 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
     renderOutputItem(data: OutputItem, element: HTMLElement) {
         const initializationData = data.json() as RendererInitializationData;
 
+        // remove annoying orange outline that sometimes appears
+        // apparently, it's from user agent stylesheet of chrome and VS Code is setting
+        // tabindex on it, so chrome thinks it must highlight it when clicked inside
+        // user agent stylesheet contains this:
+        // :focus-visible {
+        //     outline: -webkit-focus-ring-color auto 1px;
+        // }
+        element.style.outline = 'none';
+
         let shadow = element.shadowRoot;
         if (!shadow) {
             shadow = element.attachShadow({ mode: 'open' });
@@ -488,7 +497,7 @@ const styles = `
     background: linear-gradient(to bottom, var(--transparent-blue) 0%, var(--transparent-blue) 80%, var(--transparent-blue) 100%);
     --color: var(--whiteblue); 
 }
-.aborted, .error { 
+.task.aborted, .task.error { 
     box-shadow: 0 0 2px 0px var(--lightred) inset;
     background: linear-gradient(to bottom, var(--transparent-red) 0%, var(--transparent-red) 80%, var(--transparent-red) 100%);
     --color: var(--whitered);
