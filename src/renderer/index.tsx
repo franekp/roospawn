@@ -29,9 +29,31 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
     }
 });
 
+type SelectState = {
+    dragState: 'idle' | 'selecting' | 'dragging';
+    selectStart: string | undefined;  // task id
+    selectedTasks: Set<string>;  // task ids
+    setDragState: (dragState: 'idle' | 'selecting' | 'dragging') => void;
+    setSelectStart: (selectStart: string | undefined) => void;
+    setSelectedTasks: (selectedTasks: Set<string>) => void;
+}
+
 function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}: {tasks: ITask[], enabled: boolean, context: RendererContext<void>}) {
     let [tasks, setTasks] = useState<ITask[]>(initialTasks);
     let [enabled, setEnabled] = useState<boolean>(initialEnabled);
+
+    let [dragState, setDragState] = useState<'idle' | 'selecting' | 'dragging'>('idle');
+    let [selectStart, setSelectStart] = useState<string | undefined>(undefined);  // task id
+    let [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set([]));  // task ids
+
+    let selectState: SelectState = {
+        dragState,
+        selectStart,
+        selectedTasks,
+        setDragState,
+        setSelectStart,
+        setSelectedTasks,
+    };
 
     useEffect(() => {
         const disposable = context.onDidReceiveMessage?.((event: MessageToRenderer) => {
@@ -67,13 +89,72 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
                     key={task.id}
                     task={task}
                     postMessage={(message: MessageFromRenderer) => context.postMessage?.(message)}
+                    selectState={selectState}
+                    tasks={tasks}
                 />
             )}
         </div>
     </div>;
 }
 
-function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message: MessageFromRenderer) => void}): React.ReactNode {
+function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, selectState: SelectState) {
+    if (evt.shiftKey) {
+        if (selectState.selectedTasks.has(taskId)) {
+            let newSelectedTasks = new Set(selectState.selectedTasks);
+            newSelectedTasks.delete(taskId);
+            selectState.setSelectedTasks(newSelectedTasks);
+        }
+        return;
+    }
+    if (!evt.ctrlKey) {
+        if (selectState.selectedTasks.has(taskId)) {
+            selectState.setSelectedTasks(new Set([]));
+        } else {
+            selectState.setSelectedTasks(new Set([taskId]));
+        }
+        return;
+    }
+    let newSelectedTasks = new Set(selectState.selectedTasks);
+    if (selectState.selectedTasks.has(taskId)) {
+        newSelectedTasks.delete(taskId);
+    } else {
+        newSelectedTasks.add(taskId);
+    }
+    selectState.setSelectedTasks(newSelectedTasks);
+}
+
+function updateSelectedTasksFromDragRange(selectState: SelectState, start: string, end: string, tasks: ITask[], evt: React.MouseEvent<HTMLDivElement>) {
+    if (start === end) {
+        handleClick(evt, start, selectState);
+        return;
+    }
+    let startIndex = tasks.findIndex(task => task.id === start);
+    let endIndex = tasks.findIndex(task => task.id === end);
+    if (startIndex === -1 || endIndex === -1) {
+        return;
+    }
+    if (startIndex > endIndex) {
+        [startIndex, endIndex] = [endIndex, startIndex];
+    }
+    let newSelectedTasks = new Set(selectState.selectedTasks);
+    if (evt.shiftKey) {
+        for (let i = startIndex; i <= endIndex; i++) {
+            newSelectedTasks.delete(tasks[i].id);
+        }
+    } else if (evt.ctrlKey) {
+        for (let i = startIndex; i <= endIndex; i++) {
+            newSelectedTasks.add(tasks[i].id);
+        }
+    } else {
+        newSelectedTasks = new Set([]);
+        for (let i = startIndex; i <= endIndex; i++) {
+            newSelectedTasks.add(tasks[i].id);
+        }
+    }
+    selectState.setSelectedTasks(newSelectedTasks);
+}
+
+function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, postMessage: (message: MessageFromRenderer) => void, selectState: SelectState, tasks: ITask[]}): React.ReactNode {
     let pauseButton: React.ReactNode | undefined = undefined;
     if (task.status === 'queued') {
         pauseButton = <a onClick={() => {
@@ -145,7 +226,36 @@ function TaskComponent({task, postMessage}: {task: ITask, postMessage: (message:
         </svg>
     </a>;
 
-    return <div className={'task ' + task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}>
+    let taskClasses = ['task', task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')];
+    if (selectState.selectedTasks.has(task.id)) {
+        taskClasses.push('selected');
+    }
+    if (selectState.dragState !== 'selecting' && selectState.selectedTasks.has(task.id)) {
+        taskClasses.push('draggable');
+    }
+
+    let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
+        selectState.setSelectStart(task.id);
+        selectState.setDragState('selecting');
+    };
+
+    let onMouseMove = (evt: React.MouseEvent<HTMLDivElement>) => {
+        if (selectState.dragState === 'selecting' && selectState.selectStart) {
+            updateSelectedTasksFromDragRange(selectState, selectState.selectStart, task.id, tasks, evt);
+        }
+    };
+
+    let onMouseUp = (evt: React.MouseEvent<HTMLDivElement>) => {
+        if (selectState.dragState === 'selecting' && selectState.selectStart) {
+            updateSelectedTasksFromDragRange(selectState, selectState.selectStart, task.id, tasks, evt);
+            selectState.setDragState('idle');
+            selectState.setSelectStart(undefined);
+        } else if (selectState.dragState === 'idle') {
+            handleClick(evt, task.id, selectState);
+        }
+    };
+
+    return <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
     <div className="task-status-badge">
         {task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}
     </div>
@@ -309,12 +419,15 @@ const styles = `
 
 .prepared .task-status-badge {
     background: var(--prepared-badge);
+    color: white;
 }
 .queued .task-status-badge {
     background: var(--queued-badge);
+    color: white;
 }
 .running .task-status-badge {
     background: var(--running-badge);
+    color: white;
 }
 .completed .task-status-badge {
     background: var(--completed-badge);
@@ -331,5 +444,16 @@ const styles = `
 .error .task-status-badge {
     background: var(--error-badge);
     color: rgba(255, 255, 255, 0.85);
+}
+
+.task.selected {
+    box-shadow: 0 0 2px 2px rgba(0, 150, 255) inset;
+    --color: rgba(100, 200, 255);
+}
+.task.selected .task-status-badge {
+    color: rgba(100, 200, 255) !important;
+}
+.task.draggable {
+    cursor: move;
 }
 `;
