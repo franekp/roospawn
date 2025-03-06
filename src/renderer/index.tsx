@@ -33,9 +33,11 @@ type SelectState = {
     dragState: 'idle' | 'selecting' | 'dragging';
     selectStart: string | undefined;  // task id
     selectedTasks: Set<string>;  // task ids
+    draggedOverTask: string | undefined;  // task id
     setDragState: (dragState: 'idle' | 'selecting' | 'dragging') => void;
     setSelectStart: (selectStart: string | undefined) => void;
     setSelectedTasks: (selectedTasks: Set<string>) => void;
+    setDraggedOverTask: (draggedOverTask: string | undefined) => void;
 }
 
 function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}: {tasks: ITask[], enabled: boolean, context: RendererContext<void>}) {
@@ -45,14 +47,17 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
     let [dragState, setDragState] = useState<'idle' | 'selecting' | 'dragging'>('idle');
     let [selectStart, setSelectStart] = useState<string | undefined>(undefined);  // task id
     let [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set([]));  // task ids
+    let [draggedOverTask, setDraggedOverTask] = useState<string | undefined>(undefined);  // task id
 
     let selectState: SelectState = {
         dragState,
         selectStart,
         selectedTasks,
+        draggedOverTask,
         setDragState,
         setSelectStart,
         setSelectedTasks,
+        setDraggedOverTask,
     };
 
     useEffect(() => {
@@ -156,6 +161,8 @@ function updateSelectedTasksFromDragRange(selectState: SelectState, start: strin
 
 function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, postMessage: (message: MessageFromRenderer) => void, selectState: SelectState, tasks: ITask[]}): React.ReactNode {
     let pauseButton: React.ReactNode | undefined = undefined;
+    let [dropTargetStatus, setDropTargetStatus] = useState<'clear' | 'hoveredFromLeft' | 'hoveredFromRight' | 'hoveredByItself'>('clear');
+
     if (task.status === 'queued') {
         pauseButton = <a onClick={() => {
             postMessage({
@@ -235,6 +242,12 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         taskClasses.push('draggable');
     }
 
+    if (dropTargetStatus == 'hoveredFromLeft') {
+        taskClasses.push('drop-target-right-edge');
+    } else if (dropTargetStatus == 'hoveredFromRight') {
+        taskClasses.push('drop-target-left-edge');
+    } 
+
     let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
         if (!selectState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
             selectState.setSelectStart(task.id);
@@ -248,20 +261,53 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         selectState.setDragState('dragging');
         evt.dataTransfer.dropEffect = "move";
         evt.dataTransfer.effectAllowed = "move";
+
+        // this doesn't work, data is not available in dragEnter / dragOver / drop
         evt.dataTransfer.setData("text/plain", task.id + ':' + [...selectState.selectedTasks.values()].join(','));
+
+        // but this works
+        selectState.setDraggedOverTask(task.id);
     };
 
     let onDragEnd = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
+        selectState.setDraggedOverTask(undefined);
+    };
+
+    let onDragEnter = (evt: React.DragEvent<HTMLDivElement>) => {
+        evt.preventDefault();
+
+        // shows empty data despite the dataTransfer.setData above
+        // console.log('drag enter: ' + JSON.stringify(evt.dataTransfer.getData('text/plain')));
+
+        // this works
+        let draggedTask = selectState.draggedOverTask;
+        let draggedTaskIndex = tasks.findIndex(task => task.id === draggedTask);
+        let myIndex = tasks.findIndex(t => t.id === task.id);
+        if (draggedTaskIndex === -1 || myIndex === -1) {
+            return;
+        }
+        if (draggedTaskIndex < myIndex) {
+            setDropTargetStatus('hoveredFromLeft');
+        } else if (draggedTaskIndex > myIndex) {
+            setDropTargetStatus('hoveredFromRight');
+        } else {
+            setDropTargetStatus('hoveredByItself');
+        }
     };
 
     let onDragOver = (evt: React.DragEvent<HTMLDivElement>) => {
-        //evt.preventDefault();
-        evt.dataTransfer.dropEffect = "move";
+        onDragEnter(evt);
+    };
+
+    let onDragLeave = (evt: React.DragEvent<HTMLDivElement>) => {
+        evt.preventDefault();
+        setDropTargetStatus('clear');
     };
 
     let onDrop = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
+        setDropTargetStatus('clear');
     };
 
     let onMouseMove = (evt: React.MouseEvent<HTMLDivElement>) => {
@@ -281,7 +327,8 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     };
 
     return <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
-                onDragStart={onDragStart} onDragEnd={onDragEnd} draggable={draggable} onDragOver={onDragOver} onDrop={onDrop}>
+                onDragStart={onDragStart} onDragEnd={onDragEnd} draggable={draggable}
+                onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
     <div className="task-status-badge">
         {task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}
     </div>
@@ -481,5 +528,15 @@ const styles = `
 }
 .task.draggable {
     cursor: move;
+}
+.task {
+    border-right: 2px solid transparent;
+    border-left: 2px solid transparent;
+}
+.task.drop-target-right-edge {
+    border-right: 2px solid rgba(200, 200, 0);
+}
+.task.drop-target-left-edge {
+    border-left: 2px solid rgba(200, 200, 0);
 }
 `;
