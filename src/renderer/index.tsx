@@ -230,13 +230,38 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     if (selectState.selectedTasks.has(task.id)) {
         taskClasses.push('selected');
     }
-    if (selectState.dragState !== 'selecting' && selectState.selectedTasks.has(task.id)) {
+    let draggable = selectState.dragState !== 'selecting' && selectState.selectedTasks.has(task.id);
+    if (draggable) {
         taskClasses.push('draggable');
     }
 
     let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
-        selectState.setSelectStart(task.id);
-        selectState.setDragState('selecting');
+        if (!selectState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
+            selectState.setSelectStart(task.id);
+            selectState.setDragState('selecting');
+        } else {
+            selectState.setDragState('dragging');
+        }
+    };
+
+    let onDragStart = (evt: React.DragEvent<HTMLDivElement>) => {
+        selectState.setDragState('dragging');
+        evt.dataTransfer.dropEffect = "move";
+        evt.dataTransfer.effectAllowed = "move";
+        evt.dataTransfer.setData("text/plain", task.id + ':' + [...selectState.selectedTasks.values()].join(','));
+    };
+
+    let onDragEnd = (evt: React.DragEvent<HTMLDivElement>) => {
+        evt.preventDefault();
+    };
+
+    let onDragOver = (evt: React.DragEvent<HTMLDivElement>) => {
+        //evt.preventDefault();
+        evt.dataTransfer.dropEffect = "move";
+    };
+
+    let onDrop = (evt: React.DragEvent<HTMLDivElement>) => {
+        evt.preventDefault();
     };
 
     let onMouseMove = (evt: React.MouseEvent<HTMLDivElement>) => {
@@ -255,7 +280,8 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         }
     };
 
-    return <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}>
+    return <div className={taskClasses.join(' ')} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp}
+                onDragStart={onDragStart} onDragEnd={onDragEnd} draggable={draggable} onDragOver={onDragOver} onDrop={onDrop}>
     <div className="task-status-badge">
         {task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')}
     </div>
