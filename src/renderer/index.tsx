@@ -94,10 +94,19 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
         }}>Enable</button>;
     }
 
+    const handleOutsideClick = (evt: React.MouseEvent<HTMLElement>) => {
+        // handles clicks on the task-wrapper (which is invisible and occupies area between tasks)
+        // and in the empty space after the last task
+        const target = evt.target as HTMLElement;
+        if (target.classList.contains('task-wrapper') || target.classList.contains('tasks-container')) {
+            selectState.setSelectedTasks(new Set([]));
+        }
+    };
+
     return <div>
         <style>{styles}</style>
         <div>{enableButton}</div>
-        <div>
+        <div className="tasks-container" onClick={handleOutsideClick}>
             {tasks.map(task =>
                 <TaskComponent
                     key={task.id}
@@ -111,7 +120,9 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
     </div>;
 }
 
-function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, selectState: SelectState) {
+function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, selectState: SelectState, isDrop: boolean = false) {
+    // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'})`);
+
     if (evt.shiftKey) {
         if (selectState.selectedTasks.has(taskId)) {
             let newSelectedTasks = new Set(selectState.selectedTasks);
@@ -130,8 +141,10 @@ function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, sele
     }
     let newSelectedTasks = new Set(selectState.selectedTasks);
     if (selectState.selectedTasks.has(taskId)) {
+        // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'}) deleting`);
         newSelectedTasks.delete(taskId);
     } else {
+        // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'}) adding`);
         newSelectedTasks.add(taskId);
     }
     selectState.setSelectedTasks(newSelectedTasks);
@@ -263,12 +276,11 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         if (!selectState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
             selectState.setSelectStart(task.id);
             selectState.setDragState('selecting');
-        } else {
-            selectState.setDragState('dragging');
         }
     };
 
     let onDragStart = (evt: React.DragEvent<HTMLDivElement>) => {
+        // console.log(`onDragStart: ${task.id}`);
         selectState.setDragState('dragging');
         evt.dataTransfer.dropEffect = "move";
         evt.dataTransfer.effectAllowed = "move";
@@ -286,6 +298,7 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     };
 
     let onDragEnter = (evt: React.DragEvent<HTMLDivElement>) => {
+        // console.log(`onDragEnter: '${selectState.draggedOverTask}' enters '${task.id}'`);
         evt.preventDefault();
 
         // shows empty data despite the dataTransfer.setData above
@@ -318,9 +331,12 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onDrop = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
+        // console.log(`onDrop: '${selectState.draggedOverTask}' drops on '${task.id}' (${dropTargetStatus})`);
+
         if (dropTargetStatus == 'hoveredByItself') {
+            // console.log('onDrop: hoveredByItself');
             setDropTargetStatus('clear');
-            handleClick(evt, task.id, selectState);
+            handleClick(evt, task.id, selectState, true);
             return;
         }
 
