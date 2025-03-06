@@ -173,6 +173,7 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     let [dropTargetStatus, setDropTargetStatus] = useState<'clear' | 'hoveredFromLeft' | 'hoveredFromRight' | 'hoveredByItself'>('clear');
 
     if (task.status === 'queued') {
+        // icons are from https://tablericons.com/
         pauseButton = <a onClick={() => {
             postMessage({
                 type: 'pause',
@@ -317,7 +318,26 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onDrop = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
+        if (dropTargetStatus == 'hoveredByItself') {
+            setDropTargetStatus('clear');
+            handleClick(evt, task.id, selectState);
+            return;
+        }
+
+        let position;
+        if (dropTargetStatus == 'hoveredFromLeft') {
+            position = 'after';
+        } else if (dropTargetStatus == 'hoveredFromRight') {
+            position = 'before';
+        }
         setDropTargetStatus('clear');
+        selectState.setDraggedOverTask(undefined);
+        selectState.setDragState('idle');
+        postMessage({
+            type: 'moveSelectedTasks',
+            selectedTasks: [...selectState.selectedTasks.values()],
+            targetTask: task.id, position,
+        });
     };
 
     let onMouseMove = (evt: React.MouseEvent<HTMLDivElement>) => {

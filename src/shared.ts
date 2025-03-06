@@ -24,6 +24,11 @@ export type MessageFromRenderer = {
     id: string,
 } | {
     type: 'enable' | 'disable'
+} | {
+    type: 'moveSelectedTasks',
+    selectedTasks: string[],
+    targetTask: string,
+    position: 'before' | 'after',
 };
 
 export type MessageToRenderer = {

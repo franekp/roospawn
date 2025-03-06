@@ -194,6 +194,11 @@ export class RooSpawn {
                     break;
             }
 
+            if (msg.type === 'moveSelectedTasks') {
+                this.moveSelectedTasks(msg.selectedTasks, msg.targetTask, msg.position);
+                return;
+            }
+
             const task = this.tasks.find(t => t.id === msg.id);
             switch (msg.type) {
                 case 'pause':
@@ -428,6 +433,32 @@ export class RooSpawn {
             this.tasks.push(task);
         }
 
+        this.schedule_ui_repaint();
+    }
+
+    moveSelectedTasks(selectedTasks: string[], targetTask: string, position: 'before' | 'after') {
+        const selectedTasksSet = new Set(selectedTasks);
+        const targetIndex = this.tasks.findIndex(t => t.id === targetTask);
+
+        if (targetIndex === -1) {
+            throw new Error('Target task not found');
+        }
+
+        const newTasks: Task[] = [];
+        for (const [i, task] of this.tasks.entries()) {
+            if (selectedTasksSet.has(task.id)) {
+                continue;
+            }
+            if (i === targetIndex && position === 'before') {
+                newTasks.push(...selectedTasks.map(t => this.tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
+            }
+            newTasks.push(task);
+            if (i === targetIndex && position === 'after') {
+                newTasks.push(...selectedTasks.map(t => this.tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
+            }
+        }
+
+        this.tasks = newTasks;
         this.schedule_ui_repaint();
     }
 }
