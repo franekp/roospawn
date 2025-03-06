@@ -97,6 +97,14 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
     const handleOutsideClick = (evt: React.MouseEvent<HTMLElement>) => {
         // handles clicks on the task-wrapper (which is invisible and occupies area between tasks)
         // and in the empty space after the last task
+
+        // WARNING: this event must be registered as onMouseUp, not onClick.
+        // Otherwise, when doing drag-select or drag n drop, this event is triggered with **target = task-container** !!! (instead of some element in the subtree)
+        // The result is that after each drag-select the selection is immediately cleared, making it impossible to select anything.
+        // This is because a click is mouseDown + mouseUp. If they have different targets, the least common ancestor of target and currentTarget is selected,
+        // which in our case is task-container.
+        // https://stackoverflow.com/questions/51847595/why-does-clicking-and-dragging-cause-the-parent-element-to-be-the-event-target#comment90649011_51847665
+
         const target = evt.target as HTMLElement;
         if (target.classList.contains('task-wrapper') || target.classList.contains('tasks-container')) {
             selectState.setSelectedTasks(new Set([]));
@@ -106,7 +114,7 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
     return <div>
         <style>{styles}</style>
         <div>{enableButton}</div>
-        <div className="tasks-container" onClick={handleOutsideClick}>
+        <div className="tasks-container" onMouseUp={handleOutsideClick}>
             {tasks.map(task =>
                 <TaskComponent
                     key={task.id}
@@ -179,6 +187,7 @@ function updateSelectedTasksFromDragRange(selectState: SelectState, start: strin
         }
     }
     selectState.setSelectedTasks(newSelectedTasks);
+    // console.log(`updateSelectedTasksFromDragRange: setSelectedTasks(${selectState.selectedTasks})`);
 }
 
 function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, postMessage: (message: MessageFromRenderer) => void, selectState: SelectState, tasks: ITask[]}): React.ReactNode {
@@ -273,7 +282,9 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     } 
 
     let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
+        // console.log(`onMouseDown: ${task.id} (${selectState.selectedTasks.has(task.id)} ${evt.ctrlKey} ${evt.shiftKey})`);
         if (!selectState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
+            // console.log(`onMouseDown: setSelectStart(${task.id})`);
             selectState.setSelectStart(task.id);
             selectState.setDragState('selecting');
         }
@@ -364,10 +375,12 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onMouseUp = (evt: React.MouseEvent<HTMLDivElement>) => {
         if (selectState.dragState === 'selecting' && selectState.selectStart) {
+            // console.log(`onMouseUp: ${selectState.selectStart} -> ${task.id} (selecting)`);
             updateSelectedTasksFromDragRange(selectState, selectState.selectStart, task.id, tasks, evt);
             selectState.setDragState('idle');
             selectState.setSelectStart(undefined);
         } else if (selectState.dragState === 'idle') {
+            // console.log(`onMouseUp: ${task.id} (idle)`);
             handleClick(evt, task.id, selectState);
         }
     };
