@@ -7,6 +7,7 @@ export type Message =
     | { type: 'say', say: ClineSay, text?: string, images?: string[] }
     | { type: 'ask', ask: ClineAsk, text?: string }
     | { type: 'status', status: Status }
+    | { type: 'exitMessageHandler' }
     ;
 
 export type Status = 'completed' | 'aborted' | 'waiting-for-input' | 'thrown-exception';

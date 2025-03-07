@@ -286,10 +286,14 @@ export class RooSpawn {
     private async handleTaskMessages(task: WeakRef<Task>, rx: MessagesRx) {
         let msg: IteratorResult<Message, void>;
         while (!(msg = await rx.next()).done) {
+            const value = msg.value as Message;
+
+            if (value.type === 'exitMessageHandler') {
+                return;
+            }
+
             let t = task.deref();
             if (t !== undefined) {
-                const value = msg.value as Message;
-
                 if (value.type === 'status') {
                     t.status = value.status;
                     switch (t.status) {
