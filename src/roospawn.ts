@@ -1,12 +1,9 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
-import { ClineController, ExitReason, type Message } from './cline_controller';
+import { ClineController, Status, MessagesRx, type Message, type MessagesTx } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 
-function clean_whitespace(str: string): string {
-    return str.replace(/\s+/g, ' ').trim();
-}
 
 export class Task implements ITask {
     id: string;
@@ -14,8 +11,11 @@ export class Task implements ITask {
     summary: string[];
     mode: string;
     hooks: Hooks | undefined;
-    conversation: Message[] = [];
     status: TaskStatus = 'prepared';
+
+    clineId?: string;
+    tx?: MessagesTx;
+    conversation: Message[] = [];
 
     constructor(prompt: string, mode: string, hooks?: Hooks) {
         this.id = uuidv4().slice(0, 5);
@@ -46,16 +46,18 @@ export class Task implements ITask {
     stop() { this.pause(); }
 
     resume() {
-        if (this.status === 'running') { return; }
-        if (this.status === 'prepared') {
-            this.status = 'queued';
-            if (roospawn) {
-                roospawn.schedule_ui_repaint();
-                roospawn.wakeupWorker?.();
-            }
+        switch (this.status) {
+            case 'prepared':
+            case 'waiting-for-input':
+                this.status = 'queued';
+                if (roospawn) {
+                    roospawn.schedule_ui_repaint();
+                    roospawn.wakeupWorker?.();
+                }
+                return;
+            default:
+                return;
         }
-        if (this.status === 'completed') { return; }
-        if (this.status === 'queued') { return; }
     }
 
     delete() {
@@ -152,7 +154,6 @@ export class RooSpawn {
         onresume: undefined,
     };
 
-    tasks: Task[] = [];
     enabled: boolean = true;
 
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -163,7 +164,8 @@ export class RooSpawn {
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         private readonly outputChannel: vscode.OutputChannel,
-        private readonly _clineController: ClineController
+        private readonly clineController: ClineController,
+        public tasks: Task[]
     ) {
         this.worker();
         this.outputChannel.appendLine('RooSpawn initialized');
@@ -235,7 +237,7 @@ export class RooSpawn {
 
             let task: Task | undefined = undefined;
             try {
-                const result = await this._clineController.run(() => {
+                const result = await this.clineController.run(() => {
                     if (!this.enabled) {
                         return;
                     }
@@ -243,6 +245,9 @@ export class RooSpawn {
                     if (task === undefined) {
                         return;
                     }
+
+                    task.status = 'running';
+                    this.schedule_ui_repaint();
 
                     const onstartResult = this.globalHooks.onstart !== undefined ? this.globalHooks.onstart(task) : undefined;
                     console.log('onstartResult to execute', onstartResult);
@@ -257,26 +262,9 @@ export class RooSpawn {
                 }
 
                 task = result.task;
-                task.status = 'running';
-                this.schedule_ui_repaint();
 
-                const rx = result.messages;
-
-                let msg: IteratorResult<Message, ExitReason>;
-                while (!(msg = await rx.next()).done) {
-                    task.conversation.push(msg.value as Message);
-                }
-                task.status = msg.value as ExitReason;
-                switch (task.status) {
-                    case 'completed':
-                        if (this.globalHooks.oncomplete) {
-                            const result = this.globalHooks.oncomplete(task);
-                            console.log('oncompleteResult to execute', result);
-                        }
-                        break;
-                    default:
-                        console.log('task.status', task.status);
-                        break;
+                if (result.channel !== undefined) {
+                    this.handleTaskMessages(new WeakRef(task), result.channel);
                 }
             } catch (e) {
                 if (task !== undefined) {
@@ -293,6 +281,37 @@ export class RooSpawn {
 
     private getFirstQueuedTask(): Task | undefined {
         return this.tasks.find(t => t.status === 'queued');
+    }
+
+    private async handleTaskMessages(task: WeakRef<Task>, rx: MessagesRx) {
+        let msg: IteratorResult<Message, void>;
+        while (!(msg = await rx.next()).done) {
+            let t = task.deref();
+            if (t !== undefined) {
+                const value = msg.value as Message;
+
+                if (value.type === 'status') {
+                    t.status = value.status;
+                    switch (t.status) {
+                        case 'completed':
+                            const hooks = t.hooks ?? this.globalHooks;
+                            if (hooks.oncomplete) {
+                                const result = hooks.oncomplete(t);
+                                console.log('oncompleteResult to execute', result);
+                            }
+                            break;
+                        default:
+                            console.log('task.status', t.status);
+                            break;
+                    }
+                    this.schedule_ui_repaint();
+                } else {
+                    t.conversation.push(value);
+                }
+            } else {
+                return;
+            }
+        }
     }
 
     schedule_ui_repaint() {
@@ -411,7 +430,7 @@ export class RooSpawn {
             `Create a class that pretends to be a helpful AI assistant.`,
             `Write a blog post about the benefits of using AI assistants.`,
             `Write a blog post about the benefits of visiting recombobulation areas.`,
-        ]
+        ];
 
         const statuses = [
             'prepared', 'prepared', 'queued', 'queued', 'queued', 'queued', 'running', 'completed', 'completed', 'completed',
@@ -461,4 +480,8 @@ export class RooSpawn {
         this.tasks = newTasks;
         this.schedule_ui_repaint();
     }
+}
+
+function clean_whitespace(str: string): string {
+    return str.replace(/\s+/g, ' ').trim();
 }

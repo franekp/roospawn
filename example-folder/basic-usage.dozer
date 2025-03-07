@@ -12,7 +12,7 @@
     },
     {
       "kind": "code",
-      "value": "[task] = rsp.create_tasks([\"Please, calculate 2+2\"], mode=\"code\")",
+      "value": "[task] = rsp.create_tasks([\"Please, calculate write function that calculates the fibbonacii sequence\"], mode=\"code\")",
       "language": "python"
     },
     {
@@ -23,6 +23,11 @@
     {
       "kind": "code",
       "value": "[other_task] = rsp.submit_tasks([\"Please, calculate 3+3\"])",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "task.resume()",
       "language": "python"
     },
     {

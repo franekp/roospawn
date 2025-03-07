@@ -54,19 +54,21 @@ export interface ClineProvider {
     // Note: the "channel" parameter is not part of the original ClineProvider interface.
     // We need to pass the channel when we run a Roo-Spawn task. 
     initClineWithTask: (task?: string, images?: string[], params?: ControllingTrackerParams) => Promise<void>;
+    initClineWithHistoryItem: (historyItem: HistoryItem) => Promise<void>;
+
+    getTaskWithId(id: string): Promise<{ historyItem: HistoryItem }>;
 }
 
 // `Cline` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/core/Cline.ts>
 export interface Cline {
+    readonly taskId: string;
+    isStreaming: boolean;
+    abort: boolean;
+    clineMessages: ClineMessage[];
+
     say: (type: ClineSay, text?: string, images?: string[], partial?: boolean, checkpoint?: Record<string, unknown>) => Promise<undefined>;
     ask: (type: ClineAsk, text?: string, partial?: boolean) => Promise<{ response: ClineAskResponse; text?: string; images?: string[] }>;
     abortTask: (isAbandoned?: boolean) => Promise<void>;
-
-    isStreaming: boolean;
-
-    abort: boolean;
-
-    clineMessages: ClineMessage[];
 }
 
 // `ClineSay` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/ExtensionMessage.ts>
@@ -124,4 +126,18 @@ export interface ClineMessage {
     reasoning?: string
     conversationHistoryIndex?: number
     checkpoint?: Record<string, unknown>
+}
+
+// `HistoryItem` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/shared/HistoryItem.ts>
+export type HistoryItem = {
+	id: string
+	number: number
+	ts: number
+	task: string
+	tokensIn: number
+	tokensOut: number
+	cacheWrites?: number
+	cacheReads?: number
+	totalCost: number
+	size?: number
 }

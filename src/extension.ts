@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
 import { ClineController } from './cline_controller';
-import { RooSpawn } from './roospawn';
+import { RooSpawn, Task } from './roospawn';
 
 export async function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('Task Dozer');
@@ -17,8 +17,9 @@ export async function activate(context: vscode.ExtensionContext) {
     const clineProvider = ai_api.sidebarProvider;
 
     // Create main objects with proper dependency injection
-    const clineController = new ClineController(clineProvider);
-    const rooSpawn = new RooSpawn(context, outputChannel, clineController);
+    const tasks: Task[] = [];
+    const clineController = new ClineController(clineProvider, tasks);
+    const rooSpawn = new RooSpawn(context, outputChannel, clineController, tasks);
     const notebookController = new PyNotebookController(context, outputChannel, rooSpawn);
 
     // Register notebook serializer

@@ -1,12 +1,11 @@
-
-export class Channel<T, Tr> {
+export class Channel<T, Tr = void> {
     private resolvers: ((data: Data<T, Tr>) => void)[] = [];
     private data: Data<T, Tr>[] = [];
     private returned: boolean = false;
 
     private constructor() {}
 
-    static create<T, Tr>(): { tx: Channel<T, Tr>, rx: AsyncGenerator<T, Tr, void> } {
+    static create<T, Tr = void>(): { tx: Channel<T, Tr>, rx: AsyncGenerator<T, Tr, void> } {
         const channel = new Channel<T, Tr>();
         const rx = async function* () {
             while (true) {

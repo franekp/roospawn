@@ -29,6 +29,10 @@ class Task:
     def submit(self):
         self._task.submit()
 
+    def resume(self):
+        self._task.resume()
+        
+
 def _create_hook_proxy(hook: Optional[str] | Callable[[Task], Optional[str]]):
     return pyodide.ffi.create_proxy((lambda task: hook) if hook is None or isinstance(hook, str) else (lambda task: hook(Task(task))))
 
