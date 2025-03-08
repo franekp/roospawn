@@ -39,7 +39,14 @@
     opacity: 1;
 }
 .task-id-wrapper:hover .task-id {
+    --color: #eeeeee;
+    color: #eeeeee;
     border-bottom: 1px solid var(--color);
+}
+.prepared .task-id-wrapper:hover .task-id,
+.queued .task-id-wrapper:hover .task-id {
+    --color: #ffffff;
+    color: #ffffff;
 }
 .task-prompt {
     position: absolute;
@@ -57,12 +64,21 @@
 .task-buttons {
     position: absolute;
     top: 2px; right: 6px;
+    display: flex;
+    flex-direction: row;
+    align-items: start;
 }
 .task-buttons a {
     opacity: 0.6;
+    margin-left: 2px;
 }
 .task-buttons a:hover {
     opacity: 1;
+    color: #eeeeee;
+}
+.prepared .task-buttons a:hover,
+.queued .task-buttons a:hover {
+    color: #ffffff;
 }
 
 .task {
@@ -179,11 +195,17 @@
 }
 
 .task.selected {
-    box-shadow: 0 0 2px 2px rgba(0, 150, 255) inset;
+    box-shadow: 0 0 2px 2px rgba(0, 150, 255) inset, 0 0 0px 60px rgba(0, 0, 0, 0.15) inset;
     --color: rgba(100, 200, 255);
+
+    /* alternative selection color: yellow */
+    /*box-shadow: 0 0 2px 2px rgb(255, 181, 0) inset, 0 0 0px 60px rgba(0, 0, 0, 0.15) inset;
+    --color: rgb(255, 181, 0); */
 }
 .task.selected .task-status-badge {
     color: rgba(100, 200, 255) !important;
+    /* alternative selection color: yellow */
+    /* color: rgb(255, 181, 0) !important; */
 }
 .task.draggable {
     cursor: move;
@@ -191,7 +213,11 @@
 
 .task-wrapper.drop-target-right-edge {
     border-right: 4px solid rgba(0, 150, 255);
+    /* alternative selection color: yellow */
+    /* border-right: 4px solid rgb(255, 181, 0); */
 }
 .task-wrapper.drop-target-left-edge {
     border-left: 4px solid rgba(0, 150, 255);
+    /* alternative selection color: yellow */
+    /* border-left: 4px solid rgb(255, 181, 0); */
 }
