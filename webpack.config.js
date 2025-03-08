@@ -96,6 +96,10 @@ const rendererConfig = {
         issuer: /\.[jt]sx?$/,
         use: ['@svgr/webpack'],
       },
+      {
+        test: /\.css$/i,
+        use: 'raw-loader',
+      },
     ]
   },
   plugins: [

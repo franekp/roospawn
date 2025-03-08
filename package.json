@@ -61,6 +61,7 @@
   },
   "dependencies": {
     "pyodide": "0.23.4",
+    "raw-loader": "^4.0.2",
     "react": "^19.0",
     "react-dom": "^19.0",
     "uuid": "^10.0.0"

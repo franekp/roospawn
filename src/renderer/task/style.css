@@ -1,0 +1,197 @@
+.task-wrapper {
+    padding-left: 4px;
+    padding-right: 4px;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    margin-left: -2px;
+    margin-right: -2px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    display: inline-block;
+}
+
+.task {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: system-ui;
+    width: 150px;
+    height: 74px;
+    position: relative;
+    color: var(--color);
+    user-select: none;
+}
+.task-id-wrapper {
+    position: absolute;
+    bottom: 0px; right: 0px;
+    padding-left: 20px;
+    padding-top: 14px;
+    padding-bottom: 9px;
+    padding-right: 12px;
+    cursor: default;
+    opacity: 0.8;
+}
+.task-id {
+    font-size: 11px;
+    border-bottom: 1px dotted var(--color);
+    font-family: monospace;
+}
+.task-id-wrapper:hover {
+    opacity: 1;
+}
+.task-id-wrapper:hover .task-id {
+    border-bottom: 1px solid var(--color);
+}
+.task-prompt {
+    position: absolute;
+    top: 30px; left: 8px;
+    height: 42px;
+    width: 150px;
+    overflow: hidden;
+    display: inline-block;
+
+    word-break: break-all;
+    white-space: normal;
+
+    font-size: 13px;
+}
+.task-buttons {
+    position: absolute;
+    top: 2px; right: 6px;
+}
+.task-buttons a {
+    opacity: 0.6;
+}
+.task-buttons a:hover {
+    opacity: 1;
+}
+
+.task {
+    --brown: #876d57;
+    --darkbrown: #61544a;
+    --lightbrown: #c4b8ae;
+    --lightbrown: #cac4bf;
+    --transparent-brown: rgba(135, 109, 87, 0.3);
+    --green: #4eb369;
+    --slightlydarkergreen: #42995b;
+    --transparent-green: rgba(78, 179, 105, 0.5);
+    --lightgreen: #89d185;
+    --whitegreen: #a3d1a0;
+    --whitegreen: #b4d2b2;
+    
+    --blue: #008080;
+    --transparent-blue: rgba(0, 128, 128, 0.5);
+    --lightblue: #80d1d1;
+    --whiteblue: #a0d1d1;
+    --whiteblue: #9ac9c9;
+    --whiteblue: #90bcbc;
+
+    --red: #ff0000;
+    --transparent-red: rgba(200, 30, 50, 0.5);
+    --lightred: #d18080;
+    --whitered: #ff8080;
+
+    --prepared-badge: #867465;
+    --queued-badge: rgba(0, 0, 0, 0.25);
+    --running-badge: rgba(0, 0, 0, 0.15);
+    --completed-badge: var(--slightlydarkergreen);
+    --asking-badge: #a43faf;
+    --aborted-badge: #bb0000;
+    --error-badge: #bb0000;
+}
+.running {
+    background: linear-gradient(
+        270deg, var(--brown) 0%, var(--brown) 20%,
+        var(--green) 40%, var(--green) 60%,
+        var(--brown) 80%, var(--brown) 100%);
+    background-size: 500% 100%;
+    box-shadow: 0 0 2px 0px var(--lightbrown) inset;
+    --color: white;
+    animation: task-running 2s linear infinite;
+}
+@keyframes task-running {
+    0% { background-position: 100% 50%; }
+    50% { background-position: 50% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.prepared {
+    background: var(--darkbrown);
+    box-shadow: 0 0 2px 0px var(--lightbrown) inset;
+    --color: white;
+}
+.queued {
+    background: var(--brown);
+    box-shadow: 0 0 2px 0px var(--lightbrown) inset;
+    --color: white;
+}
+.completed {
+    box-shadow: 0 0 2px 0px var(--lightgreen) inset;
+    --color: var(--whitegreen);
+    background: linear-gradient(to bottom, var(--transparent-green) 0%, var(--transparent-green) 80%, var(--transparent-green) 100%);
+}
+.asking {
+    box-shadow: 0 0 2px 0px var(--lightblue) inset;
+    background: linear-gradient(to bottom, var(--transparent-blue) 0%, var(--transparent-blue) 80%, var(--transparent-blue) 100%);
+    --color: var(--whiteblue); 
+}
+.task.aborted, .task.error { 
+    box-shadow: 0 0 2px 0px var(--lightred) inset;
+    background: linear-gradient(to bottom, var(--transparent-red) 0%, var(--transparent-red) 80%, var(--transparent-red) 100%);
+    --color: var(--whitered);
+}
+
+.task-status-badge {
+    position: absolute;
+    top: 6px; left: 7px;
+    padding: 3px 5px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.prepared .task-status-badge {
+    background: var(--prepared-badge);
+    color: white;
+}
+.queued .task-status-badge {
+    background: var(--queued-badge);
+    color: white;
+}
+.running .task-status-badge {
+    background: var(--running-badge);
+    color: white;
+}
+.completed .task-status-badge {
+    background: var(--completed-badge);
+    color: white;
+}
+.asking .task-status-badge {
+    background: var(--asking-badge);
+    color: rgba(255, 255, 255, 0.85);
+}
+.aborted .task-status-badge {
+    background: var(--aborted-badge);
+    color: rgba(255, 255, 255, 0.85);
+}
+.error .task-status-badge {
+    background: var(--error-badge);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.task.selected {
+    box-shadow: 0 0 2px 2px rgba(0, 150, 255) inset;
+    --color: rgba(100, 200, 255);
+}
+.task.selected .task-status-badge {
+    color: rgba(100, 200, 255) !important;
+}
+.task.draggable {
+    cursor: move;
+}
+
+.task-wrapper.drop-target-right-edge {
+    border-right: 4px solid rgba(0, 150, 255);
+}
+.task-wrapper.drop-target-left-edge {
+    border-left: 4px solid rgba(0, 150, 255);
+}
