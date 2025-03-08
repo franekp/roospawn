@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import type { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData } from '../shared';
 import ArchiveIcon from './archive-icon.svg';
+import { useSelectionState, SelectionState } from './selection_state';
 
 export const activate: ActivationFunction = (context: RendererContext<void>) => ({
     renderOutputItem(data: OutputItem, element: HTMLElement) {
@@ -38,36 +39,11 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
     }
 });
 
-type SelectState = {
-    dragState: 'idle' | 'selecting' | 'dragging';
-    selectStart: string | undefined;  // task id
-    selectedTasks: Set<string>;  // task ids
-    draggedOverTask: string | undefined;  // task id
-    setDragState: (dragState: 'idle' | 'selecting' | 'dragging') => void;
-    setSelectStart: (selectStart: string | undefined) => void;
-    setSelectedTasks: (selectedTasks: Set<string>) => void;
-    setDraggedOverTask: (draggedOverTask: string | undefined) => void;
-}
-
 function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}: {tasks: ITask[], enabled: boolean, context: RendererContext<void>}) {
     let [tasks, setTasks] = useState<ITask[]>(initialTasks);
     let [enabled, setEnabled] = useState<boolean>(initialEnabled);
 
-    let [dragState, setDragState] = useState<'idle' | 'selecting' | 'dragging'>('idle');
-    let [selectStart, setSelectStart] = useState<string | undefined>(undefined);  // task id
-    let [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set([]));  // task ids
-    let [draggedOverTask, setDraggedOverTask] = useState<string | undefined>(undefined);  // task id
-
-    let selectState: SelectState = {
-        dragState,
-        selectStart,
-        selectedTasks,
-        draggedOverTask,
-        setDragState,
-        setSelectStart,
-        setSelectedTasks,
-        setDraggedOverTask,
-    };
+    let selectionState = useSelectionState();
 
     useEffect(() => {
         const disposable = context.onDidReceiveMessage?.((event: MessageToRenderer) => {
@@ -107,7 +83,7 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
 
         const target = evt.target as HTMLElement;
         if (target.classList.contains('task-wrapper') || target.classList.contains('tasks-container')) {
-            selectState.setSelectedTasks(new Set([]));
+            selectionState.setSelectedTasks(new Set([]));
         }
     };
 
@@ -120,7 +96,7 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
                     key={task.id}
                     task={task}
                     postMessage={(message: MessageFromRenderer) => context.postMessage?.(message)}
-                    selectState={selectState}
+                    selectionState={selectionState}
                     tasks={tasks}
                 />
             )}
@@ -128,39 +104,39 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
     </div>;
 }
 
-function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, selectState: SelectState, isDrop: boolean = false) {
+function handleClick(evt: React.MouseEvent<HTMLDivElement>, taskId: string, selectionState: SelectionState, isDrop: boolean = false) {
     // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'})`);
 
     if (evt.shiftKey) {
-        if (selectState.selectedTasks.has(taskId)) {
-            let newSelectedTasks = new Set(selectState.selectedTasks);
+        if (selectionState.selectedTasks.has(taskId)) {
+            let newSelectedTasks = new Set(selectionState.selectedTasks);
             newSelectedTasks.delete(taskId);
-            selectState.setSelectedTasks(newSelectedTasks);
+            selectionState.setSelectedTasks(newSelectedTasks);
         }
         return;
     }
     if (!evt.ctrlKey) {
-        if (selectState.selectedTasks.has(taskId)) {
-            selectState.setSelectedTasks(new Set([]));
+        if (selectionState.selectedTasks.has(taskId)) {
+            selectionState.setSelectedTasks(new Set([]));
         } else {
-            selectState.setSelectedTasks(new Set([taskId]));
+            selectionState.setSelectedTasks(new Set([taskId]));
         }
         return;
     }
-    let newSelectedTasks = new Set(selectState.selectedTasks);
-    if (selectState.selectedTasks.has(taskId)) {
+    let newSelectedTasks = new Set(selectionState.selectedTasks);
+    if (selectionState.selectedTasks.has(taskId)) {
         // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'}) deleting`);
         newSelectedTasks.delete(taskId);
     } else {
         // console.log(`handleClick: '${taskId}' (${isDrop ? 'drop' : 'click'}) adding`);
         newSelectedTasks.add(taskId);
     }
-    selectState.setSelectedTasks(newSelectedTasks);
+    selectionState.setSelectedTasks(newSelectedTasks);
 }
 
-function updateSelectedTasksFromDragRange(selectState: SelectState, start: string, end: string, tasks: ITask[], evt: React.MouseEvent<HTMLDivElement>) {
+function updateSelectedTasksFromDragRange(selectionState: SelectionState, start: string, end: string, tasks: ITask[], evt: React.MouseEvent<HTMLDivElement>) {
     if (start === end) {
-        handleClick(evt, start, selectState);
+        handleClick(evt, start, selectionState);
         return;
     }
     let startIndex = tasks.findIndex(task => task.id === start);
@@ -171,7 +147,7 @@ function updateSelectedTasksFromDragRange(selectState: SelectState, start: strin
     if (startIndex > endIndex) {
         [startIndex, endIndex] = [endIndex, startIndex];
     }
-    let newSelectedTasks = new Set(selectState.selectedTasks);
+    let newSelectedTasks = new Set(selectionState.selectedTasks);
     if (evt.shiftKey) {
         for (let i = startIndex; i <= endIndex; i++) {
             newSelectedTasks.delete(tasks[i].id);
@@ -186,11 +162,11 @@ function updateSelectedTasksFromDragRange(selectState: SelectState, start: strin
             newSelectedTasks.add(tasks[i].id);
         }
     }
-    selectState.setSelectedTasks(newSelectedTasks);
-    // console.log(`updateSelectedTasksFromDragRange: setSelectedTasks(${selectState.selectedTasks})`);
+    selectionState.setSelectedTasks(newSelectedTasks);
+    // console.log(`updateSelectedTasksFromDragRange: setSelectedTasks(${selectionState.selectedTasks})`);
 }
 
-function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, postMessage: (message: MessageFromRenderer) => void, selectState: SelectState, tasks: ITask[]}): React.ReactNode {
+function TaskComponent({task, postMessage, selectionState, tasks}: {task: ITask, postMessage: (message: MessageFromRenderer) => void, selectionState: SelectionState, tasks: ITask[]}): React.ReactNode {
     let pauseButton: React.ReactNode | undefined = undefined;
     let [dropTargetStatus, setDropTargetStatus] = useState<'clear' | 'hoveredFromLeft' | 'hoveredFromRight' | 'hoveredByItself'>('clear');
 
@@ -262,10 +238,10 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     </a>;
 
     let taskClasses = ['task', task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')];
-    if (selectState.selectedTasks.has(task.id)) {
+    if (selectionState.selectedTasks.has(task.id)) {
         taskClasses.push('selected');
     }
-    let draggable = selectState.dragState !== 'selecting' && selectState.selectedTasks.has(task.id);
+    let draggable = selectionState.dragState !== 'selecting' && selectionState.selectedTasks.has(task.id);
     if (draggable) {
         taskClasses.push('draggable');
     }
@@ -278,11 +254,11 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
     } 
 
     let onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
-        // console.log(`onMouseDown: ${task.id} (${selectState.selectedTasks.has(task.id)} ${evt.ctrlKey} ${evt.shiftKey})`);
-        if (!selectState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
-            // console.log(`onMouseDown: setSelectStart(${task.id})`);
-            selectState.setSelectStart(task.id);
-            selectState.setDragState('selecting');
+        // console.log(`onMouseDown: ${task.id} (${selectionState.selectedTasks.has(task.id)} ${evt.ctrlKey} ${evt.shiftKey})`);
+        if (!selectionState.selectedTasks.has(task.id) || evt.ctrlKey || evt.shiftKey) {
+            // console.log(`onMouseDown: setselectionStart(${task.id})`);
+            selectionState.setSelectionStart(task.id);
+            selectionState.setDragState('selecting');
         }
     };
 
@@ -293,24 +269,24 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         // preventDefault() prevents the drag-n-drop from working, so we call stopPropagation() instead.
 
         evt.stopPropagation();
-        selectState.setDragState('dragging');
+        selectionState.setDragState('dragging');
         evt.dataTransfer.dropEffect = "move";
         evt.dataTransfer.effectAllowed = "move";
 
         // this doesn't work, data is not available in dragEnter / dragOver / drop
-        evt.dataTransfer.setData("text/plain", task.id + ':' + [...selectState.selectedTasks.values()].join(','));
+        evt.dataTransfer.setData("text/plain", task.id + ':' + [...selectionState.selectedTasks.values()].join(','));
 
         // but this works
-        selectState.setDraggedOverTask(task.id);
+        selectionState.setDraggedOverTask(task.id);
     };
 
     let onDragEnd = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
-        selectState.setDraggedOverTask(undefined);
+        selectionState.setDraggedOverTask(undefined);
     };
 
     let onDragEnter = (evt: React.DragEvent<HTMLDivElement>) => {
-        // console.log(`onDragEnter: '${selectState.draggedOverTask}' enters '${task.id}'`);
+        // console.log(`onDragEnter: '${selectionState.draggedOverTask}' enters '${task.id}'`);
 
         // We call preventDefault() on most events, as is advised here: https://medium.com/@reiberdatschi/common-pitfalls-with-html5-drag-n-drop-api-9f011a09ee6c
         evt.preventDefault();
@@ -319,7 +295,7 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
         // console.log('drag enter: ' + JSON.stringify(evt.dataTransfer.getData('text/plain')));
 
         // this works
-        let draggedTask = selectState.draggedOverTask;
+        let draggedTask = selectionState.draggedOverTask;
         let draggedTaskIndex = tasks.findIndex(task => task.id === draggedTask);
         let myIndex = tasks.findIndex(t => t.id === task.id);
         if (draggedTaskIndex === -1 || myIndex === -1) {
@@ -345,12 +321,12 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onDrop = (evt: React.DragEvent<HTMLDivElement>) => {
         evt.preventDefault();
-        // console.log(`onDrop: '${selectState.draggedOverTask}' drops on '${task.id}' (${dropTargetStatus})`);
+        // console.log(`onDrop: '${selectionState.draggedOverTask}' drops on '${task.id}' (${dropTargetStatus})`);
 
         if (dropTargetStatus == 'hoveredByItself') {
             // console.log('onDrop: hoveredByItself');
             setDropTargetStatus('clear');
-            handleClick(evt, task.id, selectState, true);
+            handleClick(evt, task.id, selectionState, true);
             return;
         }
 
@@ -361,30 +337,30 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
             position = 'before';
         }
         setDropTargetStatus('clear');
-        selectState.setDraggedOverTask(undefined);
-        selectState.setDragState('idle');
+        selectionState.setDraggedOverTask(undefined);
+        selectionState.setDragState('idle');
         postMessage({
             type: 'moveSelectedTasks',
-            selectedTasks: [...selectState.selectedTasks.values()],
+            selectedTasks: [...selectionState.selectedTasks.values()],
             targetTask: task.id, position,
         });
     };
 
     let onMouseMove = (evt: React.MouseEvent<HTMLDivElement>) => {
-        if (selectState.dragState === 'selecting' && selectState.selectStart) {
-            updateSelectedTasksFromDragRange(selectState, selectState.selectStart, task.id, tasks, evt);
+        if (selectionState.dragState === 'selecting' && selectionState.selectionStart) {
+            updateSelectedTasksFromDragRange(selectionState, selectionState.selectionStart, task.id, tasks, evt);
         }
     };
 
     let onMouseUp = (evt: React.MouseEvent<HTMLDivElement>) => {
-        if (selectState.dragState === 'selecting' && selectState.selectStart) {
-            // console.log(`onMouseUp: ${selectState.selectStart} -> ${task.id} (selecting)`);
-            updateSelectedTasksFromDragRange(selectState, selectState.selectStart, task.id, tasks, evt);
-            selectState.setDragState('idle');
-            selectState.setSelectStart(undefined);
-        } else if (selectState.dragState === 'idle') {
+        if (selectionState.dragState === 'selecting' && selectionState.selectionStart) {
+            // console.log(`onMouseUp: ${selectionState.selectionStart} -> ${task.id} (selecting)`);
+            updateSelectedTasksFromDragRange(selectionState, selectionState.selectionStart, task.id, tasks, evt);
+            selectionState.setDragState('idle');
+            selectionState.setSelectionStart(undefined);
+        } else if (selectionState.dragState === 'idle') {
             // console.log(`onMouseUp: ${task.id} (idle)`);
-            handleClick(evt, task.id, selectState);
+            handleClick(evt, task.id, selectionState);
         }
     };
 
