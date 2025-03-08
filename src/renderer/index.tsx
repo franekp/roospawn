@@ -101,8 +101,8 @@ function TasksComponent({tasks: initialTasks, enabled: initialEnabled, context}:
         // WARNING: this event must be registered as onMouseUp, not onClick.
         // Otherwise, when doing drag-select or drag n drop, this event is triggered with **target = task-container** !!! (instead of some element in the subtree)
         // The result is that after each drag-select the selection is immediately cleared, making it impossible to select anything.
-        // This is because a click is mouseDown + mouseUp. If they have different targets, the least common ancestor of target and currentTarget is selected,
-        // which in our case is task-container.
+        // This is because a click is mouseDown + mouseUp. If they have different targets, the least common ancestor of the targets is selected as the
+        // target of the click event, which in our case is task-container.
         // https://stackoverflow.com/questions/51847595/why-does-clicking-and-dragging-cause-the-parent-element-to-be-the-event-target#comment90649011_51847665
 
         const target = evt.target as HTMLElement;
@@ -288,6 +288,11 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onDragStart = (evt: React.DragEvent<HTMLDivElement>) => {
         // console.log(`onDragStart: ${task.id}`);
+        // Here https://medium.com/@reiberdatschi/common-pitfalls-with-html5-drag-n-drop-api-9f011a09ee6c
+        // it is advised to call preventDefault() on most events. However, in case of onDragStart,
+        // preventDefault() prevents the drag-n-drop from working, so we call stopPropagation() instead.
+
+        evt.stopPropagation();
         selectState.setDragState('dragging');
         evt.dataTransfer.dropEffect = "move";
         evt.dataTransfer.effectAllowed = "move";
@@ -306,6 +311,8 @@ function TaskComponent({task, postMessage, selectState, tasks}: {task: ITask, po
 
     let onDragEnter = (evt: React.DragEvent<HTMLDivElement>) => {
         // console.log(`onDragEnter: '${selectState.draggedOverTask}' enters '${task.id}'`);
+
+        // We call preventDefault() on most events, as is advised here: https://medium.com/@reiberdatschi/common-pitfalls-with-html5-drag-n-drop-api-9f011a09ee6c
         evt.preventDefault();
 
         // shows empty data despite the dataTransfer.setData above
