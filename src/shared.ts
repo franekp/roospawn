@@ -16,14 +16,14 @@ export interface ITask {
 
 export interface RendererInitializationData {
     tasks: ITask[];
-    enabled: boolean;
+    workerActive: boolean;
 }
 
 export type MessageFromRenderer = {
-    type: 'pause' | 'resume' | 'delete' | 'moveUp' | 'moveDown' | 'moveToTop' | 'moveToBottom',
+    type: 'submitTask' | 'cancelTask' | 'archiveTask' | 'unarchiveTask'
     id: string,
 } | {
-    type: 'enable' | 'disable'
+    type: 'pauseWorker' | 'resumeWorker'
 } | {
     type: 'moveSelectedTasks',
     selectedTasks: string[],
@@ -34,7 +34,7 @@ export type MessageFromRenderer = {
 export type MessageToRenderer = {
     type: 'statusUpdated',
     tasks: ITask[],
-    enabled: boolean,
+    workerActive: boolean,
 };
 
 export interface Hooks {

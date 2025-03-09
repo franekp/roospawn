@@ -1,5 +1,5 @@
 import type { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import type { RendererInitializationData } from '../shared';
 import TaskList from './task_list';
@@ -31,7 +31,7 @@ export const activate: ActivationFunction = (context: RendererContext<void>) => 
             throw new Error('Could not find root element');
         }
 
-        ReactDOM.createRoot(root).render(<TaskList tasks={initializationData.tasks} enabled={initializationData.enabled} context={context} />);
+        ReactDOM.createRoot(root).render(<TaskList tasks={initializationData.tasks} workerActive={initializationData.workerActive} context={context} />);
     },
 
     disposeOutputItem(id: string) {

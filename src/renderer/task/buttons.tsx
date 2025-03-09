@@ -1,9 +1,10 @@
+import '../svg.d.ts'  // ts langserver needs this, not needed to compile without errors
 import React from 'react'
 import { ITask, MessageFromRenderer } from '../../shared'
-import ArchiveArrowDownIcon from '../icons/archive-arrow-down.svg'
-import AddToQueueIcon from '../icons/add-to-queue.svg'
-import RemoveFromQueueIcon from '../icons/remove-from-queue.svg'
-import ResumeTaskIcon from '../icons/resume-task.svg'
+import ArchiveIcon from '../icons/archive-arrow-down.svg'
+import UnarchiveIcon from '../icons/archive-arrow-up.svg'
+import SubmitIcon from '../icons/submit.svg'
+import CancelIcon from '../icons/cancel.svg'
 
 
 type TaskButtonsProps = {
@@ -12,60 +13,55 @@ type TaskButtonsProps = {
 }
 
 export default function TaskButtons({task, postMessage}: TaskButtonsProps): React.ReactNode {
-
-    let pauseButton: React.ReactNode | undefined = undefined;
+    let submitButton: React.ReactNode | undefined = undefined;
+    if (task.status !== 'queued' && task.status !== 'running' && !task.archived) {
+        submitButton = <a onClick={() => {
+            postMessage({
+                type: 'submitTask',
+                id: task.id
+            });
+        }}>
+            <SubmitIcon width={18} height={18} />
+        </a>;
+    }
+    let cancelButton: React.ReactNode | undefined = undefined;
     if (task.status === 'queued') {
         // icons are from https://tablericons.com/
-        pauseButton = <a onClick={() => {
+        cancelButton = <a onClick={() => {
             postMessage({
-                type: 'pause',
+                type: 'cancelTask',
                 id: task.id
             });
         }}>
-            <RemoveFromQueueIcon width={18} height={18} />
+            <CancelIcon width={18} height={18} />
         </a>;
     }
-
-    let unpauseButton: React.ReactNode | undefined = undefined;
-    if (task.status === 'prepared') {
-        unpauseButton = <a onClick={() => {
+    let archiveButton: React.ReactNode | undefined = undefined;
+    if (!['queued', 'running'].includes(task.status) && !task.archived) {
+        archiveButton = <a onClick={() => {
             postMessage({
-                type: 'resume',
+                type: 'archiveTask',
                 id: task.id
             });
         }}>
-            <AddToQueueIcon width={18} height={18} />
-        </a>;
-    }
-
-    let resumeButton: React.ReactNode | undefined = undefined;
-    if (['completed', 'asking', 'aborted', 'error'].includes(task.status)) {
-        resumeButton = <a onClick={() => {
-            // postMessage({
-            //     type: 'resume',
-            //     id: task.id
-            // });
-        }}>
-            <ResumeTaskIcon width={20} height={20} />
+            <ArchiveIcon width={18} height={18} />
         </a>
     }
-
-    let deleteButton: React.ReactNode | undefined = undefined;
-    if (!['queued', 'running'].includes(task.status)) {
-        deleteButton = <a onClick={() => {
+    let unarchiveButton: React.ReactNode | undefined = undefined;
+    if (task.archived) {
+        unarchiveButton = <a onClick={() => {
             postMessage({
-                type: 'delete',
+                type: 'unarchiveTask',
                 id: task.id
             });
         }}>
-            <ArchiveArrowDownIcon width={18} height={18} />
+            <UnarchiveIcon width={18} height={18} />
         </a>
     }
-
     return <div className="task-buttons">
-        {pauseButton}
-        {unpauseButton}
-        {resumeButton}
-        {deleteButton}
+        {cancelButton}
+        {submitButton}
+        {archiveButton}
+        {unarchiveButton}
     </div>
 }

@@ -13,6 +13,7 @@ export class Task implements ITask {
     hooks: Hooks | undefined;
     status: TaskStatus = 'prepared';
     archived: boolean = false;
+    prev_attempts: TaskStatus[] = [];
 
     clineId?: string;
     tx?: MessagesTx;
@@ -29,108 +30,105 @@ export class Task implements ITask {
         this.summary = prompt_summarizer.summary(prompt, score, 65);
     }
 
-    pause() {
-        if (this.status === 'running') {
-            throw new Error('Task is already running');
-        }
-        if (this.status === 'prepared') { return; }
-        if (this.status === 'completed') { return; }
-        if (this.status === 'queued') {
-            this.status = 'prepared';
-            if (roospawn) {
-                roospawn.schedule_ui_repaint();
-            }
-        }
-    }
-
-    cancel() { this.pause(); }
-    stop() { this.pause(); }
-
-    resume() {
+    submit() {
         switch (this.status) {
             case 'prepared':
-            case 'asking':
                 this.status = 'queued';
                 if (roospawn) {
                     roospawn.schedule_ui_repaint();
                     roospawn.wakeupWorker?.();
                 }
-                return;
-            default:
-                return;
+                break;
+            case 'queued':
+                vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
+                break;
+            case 'running':
+                vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                break;
+            case 'completed':
+            case 'asking':
+            case 'aborted':
+            case 'error': 
+                // resubmit task
+                this.prev_attempts.unshift(this.status);
+                
+                this.status = 'queued';
+                if (roospawn) {
+                    roospawn.schedule_ui_repaint();
+                    roospawn.wakeupWorker?.();
+                }
+                break;
         }
     }
 
-    delete() {
-        if (this.status === 'running') {
-            throw new Error('Cannot delete running task');
+    cancel() {
+        switch (this.status) {
+            case 'prepared':
+                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is not in queue, nothing to cancel ("${this.summary.join(' ... ')}")`);
+                break;
+            case 'queued':
+                this.status = this.prev_attempts.shift() ?? 'prepared';
+                if (roospawn) {
+                    roospawn.schedule_ui_repaint();
+                }
+                break;
+            case 'running':
+                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                break;
+            case 'completed':
+            case 'asking':
+            case 'aborted':
+            case 'error':
+                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} has already finished ("${this.summary.join(' ... ')}")`);
+                break;
         }
-        this.archived = true;
+    }
+
+    archive() {
+        if (this.archived) {
+            vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already archived ("${this.summary.join(' ... ')}")`);
+            return;
+        }
+
+        switch (this.status) {
+            case 'prepared':
+            case 'completed':
+            case 'asking': 
+            case 'aborted':
+            case 'error':
+                this.archived = true;
+                if (roospawn) {
+                    roospawn.schedule_ui_repaint();
+                }
+                break;
+            case 'queued':
+                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
+                break;
+            case 'running':
+                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                break;
+        }
+    }
+
+    unarchive() {
+        if (!this.archived) {
+            vscode.window.showInformationMessage(`Cannot unarchive: task #${this.id} is not archived ("${this.summary.join(' ... ')}")`);
+            return;
+        }
+        this.archived = false;
         if (roospawn) {
             roospawn.schedule_ui_repaint();
         }
     }
 
-    remove() { this.delete(); }
-
-    move_up() {
-        if(!roospawn) { return; }
-        const index = roospawn.tasks.indexOf(this);
-        if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === 0) { return; }
-        roospawn.tasks[index] = roospawn.tasks[index - 1];
-        roospawn.tasks[index - 1] = this;
-        roospawn.schedule_ui_repaint();
-    }
-    
-    move_down() {
-        if(!roospawn) { return; }
-        const index = roospawn.tasks.indexOf(this);
-        if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === roospawn.tasks.length - 1) { return; }
-        roospawn.tasks[index] = roospawn.tasks[index + 1];
-        roospawn.tasks[index + 1] = this;
-        roospawn.schedule_ui_repaint();
-    }
-
-    move_to_top() {
-        if(!roospawn) { return; }
-        const index = roospawn.tasks.indexOf(this);
-        if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === 0) { return; }
-        roospawn.tasks.splice(index, 1);
-        roospawn.tasks.unshift(this);
-        roospawn.schedule_ui_repaint();
-    }
-
-    move_to_bottom() {
-        if(!roospawn) { return; }
-        const index = roospawn.tasks.indexOf(this);
-        if(index === -1) { throw new Error("Task not found on the task list"); }
-        if(index === roospawn.tasks.length - 1) { return; }
-        roospawn.tasks.splice(index, 1);
-        roospawn.tasks.push(this);
-        roospawn.schedule_ui_repaint();
-    }
-
     conversation_as_json(): string {
         return JSON.stringify(this.conversation);
-    }
-
-    submit() {
-        if (this.status === 'prepared') {
-            this.status = 'queued';
-            if (roospawn) {
-                roospawn.schedule_ui_repaint();
-                roospawn.wakeupWorker?.();
-            }
-        }
     }
 }
 
 export class RooSpawnStatus implements RendererInitializationData {
     public mime_type = 'application/x-roospawn-status';
-    constructor(public tasks: ITask[], public enabled: boolean) {}
+    constructor(public tasks: ITask[], public workerActive: boolean) {}
 }
 
 let roospawn: RooSpawn | undefined;
@@ -144,7 +142,7 @@ export class RooSpawn {
         onresume: undefined,
     };
 
-    enabled: boolean = true;
+    workerActive: boolean = true;
 
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
@@ -168,7 +166,7 @@ export class RooSpawn {
                 await messageChannel.postMessage({
                     type: 'statusUpdated',
                     tasks: [...this.tasks],
-                    enabled: this.enabled,
+                    workerActive: this.workerActive,
                 } as MessageToRenderer);
             })
         );
@@ -176,11 +174,11 @@ export class RooSpawn {
             const msg = evt.message as MessageFromRenderer;
 
             switch (msg.type) {
-                case 'enable':
-                    this.enable();
+                case 'resumeWorker':
+                    this.resumeWorker();
                     return;
-                case 'disable':
-                    this.disable();
+                case 'pauseWorker':
+                    this.pauseWorker();
                     return;
                 default:
                     break;
@@ -193,26 +191,17 @@ export class RooSpawn {
 
             const task = this.tasks.find(t => t.id === msg.id);
             switch (msg.type) {
-                case 'pause':
-                    task?.pause();
+                case 'submitTask':
+                    task?.submit();
                     break;
-                case 'resume':
-                    task?.resume();
+                case 'cancelTask':
+                    task?.cancel();
                     break;
-                case 'delete':
-                    task?.delete();
+                case 'archiveTask':
+                    task?.archive();
                     break;
-                case 'moveUp':
-                    task?.move_up();
-                    break;
-                case 'moveDown':
-                    task?.move_down();
-                    break;
-                case 'moveToTop':
-                    task?.move_to_top();
-                    break;
-                case 'moveToBottom':
-                    task?.move_to_bottom();
+                case 'unarchiveTask':
+                    task?.unarchive();
                     break;
             }
         });
@@ -220,7 +209,7 @@ export class RooSpawn {
 
     private async worker() {
         while (true) {
-            while (!this.enabled || this.getFirstQueuedTask() === undefined) {
+            while (!this.workerActive || this.getFirstQueuedTask() === undefined) {
                 await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
                 this.wakeupWorker = undefined;
             }
@@ -228,7 +217,7 @@ export class RooSpawn {
             let task: Task | undefined = undefined;
             try {
                 const result = await this.clineController.run(() => {
-                    if (!this.enabled) {
+                    if (!this.workerActive) {
                         return;
                     }
                     const task = this.getFirstQueuedTask();
@@ -365,19 +354,19 @@ export class RooSpawn {
         return this.tasks.filter(t => t.status === 'prepared');
     }
 
-    enable() {
-        this.enabled = true;
+    resumeWorker() {
+        this.workerActive = true;
         this.wakeupWorker?.();
         this.schedule_ui_repaint();
     }
 
-    disable() {
-        this.enabled = false;
+    pauseWorker() {
+        this.workerActive = false;
         this.schedule_ui_repaint();
     }
 
     livePreview(): RooSpawnStatus {
-        return new RooSpawnStatus([...this.tasks], this.enabled);
+        return new RooSpawnStatus([...this.tasks], this.workerActive);
     }
 
     async showRooCodeSidebar(): Promise<void> {
@@ -385,7 +374,7 @@ export class RooSpawn {
     }
 
     develop() {
-        this.disable();
+        this.pauseWorker();
 
         const prefixes = [`You are expert programmer who pretends to be a helpful AI assistant. Your children are starving.
             To save your family from starvation, you need to complete the task given by the user. Remember to be direct and concise.
@@ -428,7 +417,12 @@ export class RooSpawn {
 
         const statuses = [
             'prepared', 'prepared', 'queued', 'queued', 'queued', 'queued', 'running', 'completed', 'completed', 'completed',
-            'waiting-for-input', 'waiting-for-input', 'aborted', 'thrown-exception',
+            'asking', 'asking', 'aborted', 'error',
+        ];
+
+        const is_archived = [
+            false, true, false, false, false, false, false, false, true, true,
+            false, true, false, false,
         ];
 
         const prompts: string[] = [];
@@ -443,6 +437,7 @@ export class RooSpawn {
         for (const [i, prompt] of prompts.entries()) {
             const task = new Task(prompt, 'code');
             task.status = statuses[i] as TaskStatus;
+            task.archived = is_archived[i];
             this.tasks.push(task);
         }
 

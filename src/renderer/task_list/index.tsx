@@ -1,3 +1,4 @@
+import '../css.d.ts'  // ts langserver needs this, not needed to compile without errors
 import React, { useState, useEffect } from 'react'
 import { ITask, MessageFromRenderer, MessageToRenderer } from '../../shared'
 import { useSelectionState, SelectionState } from '../selection_state'
@@ -6,9 +7,9 @@ import style from '../task/style.css'
 import Task from '../task'
 
 
-export default function TaskList({tasks: initialTasks, enabled: initialEnabled, context}: {tasks: ITask[], enabled: boolean, context: RendererContext<void>}) {
+export default function TaskList({tasks: initialTasks, workerActive: initialWorkerActive, context}: {tasks: ITask[], workerActive: boolean, context: RendererContext<void>}) {
     let [tasks, setTasks] = useState<ITask[]>(initialTasks)
-    let [enabled, setEnabled] = useState<boolean>(initialEnabled)
+    let [workerActive, setWorkerActive] = useState<boolean>(initialWorkerActive)
 
     let selectionState = useSelectionState()
 
@@ -16,30 +17,30 @@ export default function TaskList({tasks: initialTasks, enabled: initialEnabled, 
         const disposable = context.onDidReceiveMessage?.((event: MessageToRenderer) => {
             if (event.type === 'statusUpdated') {
                 setTasks(event.tasks)
-                setEnabled(event.enabled)
+                setWorkerActive(event.workerActive)
             }
         });
         return () => disposable?.dispose()
     }, [context])
 
-    let enableButton: React.ReactNode;
-    if (enabled) {
-        enableButton = <button onClick={() => {
+    let pauseResumeButton: React.ReactNode;
+    if (workerActive) {
+        pauseResumeButton = <button onClick={() => {
             context.postMessage?.({
-                type: 'disable'
+                type: 'pauseWorker'
             });
-        }}>Disable</button>
+        }}>Pause</button>
     } else {
-        enableButton = <button onClick={() => {
+        pauseResumeButton = <button onClick={() => {
             context.postMessage?.({
-                type: 'enable'
+                type: 'resumeWorker'
             });
-        }}>Enable</button>
+        }}>Resume</button>
     }
 
     return <div>
         <style>{style}</style>
-        <div>{enableButton}</div>
+        <div>{pauseResumeButton}</div>
         <div className="tasks-container" onMouseUp={evt => handleOutsideClick(evt, selectionState)}>
             {tasks.map(task =>
                 <Task

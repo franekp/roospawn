@@ -1,4 +1,4 @@
-import _roospawn as api # type: ignore
+import _roospawn as api  # type: ignore
 from typing import Callable, Optional
 import pyodide
 
@@ -29,15 +29,22 @@ class Task:
     def submit(self):
         self._task.submit()
 
-    def resume(self):
-        self._task.resume()
-        
+    def cancel(self):
+        self._task.cancel()
+
+    def archive(self):
+        self._task.archive()
+
+    def unarchive(self):
+        self._task.unarchive()
+
 
 def _create_hook_proxy(hook: Optional[str] | Callable[[Task], Optional[str]]):
     return pyodide.ffi.create_proxy((lambda task: hook) if hook is None or isinstance(hook, str) else (lambda task: hook(Task(task))))
 
 def _clone_hook_proxy(hook: Optional[pyodide.ffi.JsDoubleProxy]) -> Optional[pyodide.ffi.JsDoubleProxy]:
     return None if hook is None else pyodide.ffi.create_proxy(hook.unwrap())
+
 
 class Hooks:
     def __init__(self, hooks):
@@ -56,6 +63,7 @@ class Hooks:
         onresume = make_hook(onresume, self._hooks.onresume)
 
         return Hooks(api.createHooks(onstart, oncomplete, onpause, onresume))
+
 
 def onstart(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.onstart is not None:
@@ -85,7 +93,7 @@ def live_preview():
 
 def create_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] = None) -> list[Task]:
     hooks = None if hooks is None else hooks._hooks
-    tasks = api.createTasks(prompts, mode, hooks);
+    tasks = api.createTasks(prompts, mode, hooks)
     return [Task(task) for task in tasks]
 
 def submit_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] = None) -> list[Task]:
@@ -93,6 +101,12 @@ def submit_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] 
     for task in tasks:
         task.submit()
     return tasks
+
+def pause_task_flow():
+    api.pauseWorker()
+
+def resume_task_flow():
+    api.resumeWorker()
 
 def develop():
     api.develop()
