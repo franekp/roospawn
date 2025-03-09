@@ -10,7 +10,7 @@ export type Message =
     | { type: 'exitMessageHandler' }
     ;
 
-export type Status = 'completed' | 'aborted' | 'waiting-for-input' | 'thrown-exception';
+export type Status = 'completed' | 'aborted' | 'asking' | 'error';
 
 export type MessagesTx = Channel<Message>;
 export type MessagesRx = AsyncGenerator<Message, void, void>;
@@ -177,7 +177,7 @@ export class ClineController {
                 cline.ask = oldAsk;
                 cline.abortTask = oldAbortTask;
 
-                channel.send({ type: 'status', status: 'waiting-for-input' });
+                channel.send({ type: 'status', status: 'asking' });
                 // Allow other tasks to run.
                 // Running another task will call `ClineProvider.initClineWithTask`,
                 // which internally aborts the current task.

@@ -1,9 +1,9 @@
 import { Task } from "./roospawn";
 
 export type TaskStatus =
-    | 'prepared' | 'queued' | 'running' | 'paused' | 'completed' | 'waiting-for-input' | 'aborted'
-    | 'archived-prepared' | 'archived-completed' | 'archived-waiting-for-input' | 'archived-aborted'
-    | 'thrown-exception'
+    | 'prepared' | 'queued' | 'running' | 'paused' | 'completed' | 'asking' | 'aborted'
+    | 'archived-prepared' | 'archived-completed' | 'archived-asking' | 'archived-aborted'
+    | 'error'
     ;
 
 export interface ITask {

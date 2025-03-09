@@ -48,7 +48,7 @@ export class Task implements ITask {
     resume() {
         switch (this.status) {
             case 'prepared':
-            case 'waiting-for-input':
+            case 'asking':
                 this.status = 'queued';
                 if (roospawn) {
                     roospawn.schedule_ui_repaint();
@@ -70,8 +70,8 @@ export class Task implements ITask {
         if (this.status === 'completed') {
             this.status = 'archived-completed';
         }
-        if (this.status === 'waiting-for-input') {
-            this.status = 'archived-waiting-for-input';
+        if (this.status === 'asking') {
+            this.status = 'archived-asking';
         }
         if (this.status === 'aborted') {
             this.status = 'archived-aborted';
@@ -268,7 +268,7 @@ export class RooSpawn {
                 }
             } catch (e) {
                 if (task !== undefined) {
-                    task.status = 'thrown-exception';
+                    task.status = 'error';
                     console.error('Error running task', task, e);
                 } else {
                     console.error('Error in RooSpawn', e);

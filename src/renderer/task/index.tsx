@@ -15,7 +15,7 @@ type TaskProps = {
 }
 
 export default function Task({task, postMessage, selectionState, tasks}: TaskProps): React.ReactNode {
-    const taskStatus = task.status.replace('waiting-for-input', 'asking').replace('thrown-exception', 'error')
+    const taskStatus = task.status
     let taskClasses = ['task', taskStatus]
 
     const selectable = useSelectable(selectionState, task, tasks)

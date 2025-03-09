@@ -39,7 +39,7 @@ export default function TaskButtons({task, postMessage}: TaskButtonsProps): Reac
     }
 
     let resumeButton: React.ReactNode | undefined = undefined;
-    if (['completed', 'waiting-for-input', 'aborted', 'thrown-exception'].includes(task.status)) {
+    if (['completed', 'asking', 'aborted', 'error'].includes(task.status)) {
         resumeButton = <a onClick={() => {
             // postMessage({
             //     type: 'resume',
