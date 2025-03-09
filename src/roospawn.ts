@@ -12,6 +12,7 @@ export class Task implements ITask {
     mode: string;
     hooks: Hooks | undefined;
     status: TaskStatus = 'prepared';
+    archived: boolean = false;
 
     clineId?: string;
     tx?: MessagesTx;
@@ -64,18 +65,7 @@ export class Task implements ITask {
         if (this.status === 'running') {
             throw new Error('Cannot delete running task');
         }
-        if (this.status === 'prepared') {
-            this.status = 'archived-prepared';
-        }
-        if (this.status === 'completed') {
-            this.status = 'archived-completed';
-        }
-        if (this.status === 'asking') {
-            this.status = 'archived-asking';
-        }
-        if (this.status === 'aborted') {
-            this.status = 'archived-aborted';
-        }
+        this.archived = true;
         if (roospawn) {
             roospawn.schedule_ui_repaint();
         }
