@@ -17,8 +17,8 @@ export default function TaskButtons({task, postMessage}: TaskButtonsProps): Reac
     if (task.status !== 'queued' && task.status !== 'running' && !task.archived) {
         submitButton = <a onClick={() => {
             postMessage({
-                type: 'submitTask',
-                id: task.id
+                type: 'submitTasks',
+                taskIds: [task.id]
             });
         }}>
             <SubmitIcon width={18} height={18} />
@@ -29,8 +29,8 @@ export default function TaskButtons({task, postMessage}: TaskButtonsProps): Reac
         // icons are from https://tablericons.com/
         cancelButton = <a onClick={() => {
             postMessage({
-                type: 'cancelTask',
-                id: task.id
+                type: 'cancelTasks',
+                taskIds: [task.id]
             });
         }}>
             <CancelIcon width={18} height={18} />
@@ -40,8 +40,8 @@ export default function TaskButtons({task, postMessage}: TaskButtonsProps): Reac
     if (!['queued', 'running'].includes(task.status) && !task.archived) {
         archiveButton = <a onClick={() => {
             postMessage({
-                type: 'archiveTask',
-                id: task.id
+                type: 'archiveTasks',
+                taskIds: [task.id]
             });
         }}>
             <ArchiveIcon width={18} height={18} />
@@ -51,8 +51,8 @@ export default function TaskButtons({task, postMessage}: TaskButtonsProps): Reac
     if (task.archived) {
         unarchiveButton = <a onClick={() => {
             postMessage({
-                type: 'unarchiveTask',
-                id: task.id
+                type: 'unarchiveTasks',
+                taskIds: [task.id]
             });
         }}>
             <UnarchiveIcon width={18} height={18} />

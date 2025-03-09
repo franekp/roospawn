@@ -30,7 +30,7 @@ export class Task implements ITask {
         this.summary = prompt_summarizer.summary(prompt, score, 65);
     }
 
-    submit() {
+    submit(verbose: boolean = true) {
         switch (this.status) {
             case 'prepared':
                 this.status = 'queued';
@@ -40,10 +40,14 @@ export class Task implements ITask {
                 }
                 break;
             case 'queued':
-                vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
+                if (verbose) {
+                    vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
+                }
                 break;
             case 'running':
-                vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                if (verbose) {
+                    vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                }
                 break;
             case 'completed':
             case 'asking':
@@ -61,10 +65,12 @@ export class Task implements ITask {
         }
     }
 
-    cancel() {
+    cancel(verbose: boolean = true) {
         switch (this.status) {
             case 'prepared':
-                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is not in queue, nothing to cancel ("${this.summary.join(' ... ')}")`);
+                if (verbose) {
+                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is not in queue, nothing to cancel ("${this.summary.join(' ... ')}")`);
+                }
                 break;
             case 'queued':
                 this.status = this.prev_attempts.shift() ?? 'prepared';
@@ -73,20 +79,26 @@ export class Task implements ITask {
                 }
                 break;
             case 'running':
-                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                if (verbose) {
+                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
+                }
                 break;
             case 'completed':
             case 'asking':
             case 'aborted':
             case 'error':
-                vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} has already finished ("${this.summary.join(' ... ')}")`);
+                if (verbose) {
+                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} has already finished ("${this.summary.join(' ... ')}")`);
+                }
                 break;
         }
     }
 
-    archive() {
+    archive(verbose: boolean = true) {
         if (this.archived) {
-            vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already archived ("${this.summary.join(' ... ')}")`);
+            if (verbose) {
+                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already archived ("${this.summary.join(' ... ')}")`);
+            }
             return;
         }
 
@@ -110,9 +122,11 @@ export class Task implements ITask {
         }
     }
 
-    unarchive() {
+    unarchive(verbose: boolean = true) {
         if (!this.archived) {
-            vscode.window.showInformationMessage(`Cannot unarchive: task #${this.id} is not archived ("${this.summary.join(' ... ')}")`);
+            if (verbose) {
+                vscode.window.showInformationMessage(`Cannot unarchive: task #${this.id} is not archived ("${this.summary.join(' ... ')}")`);
+            }
             return;
         }
         this.archived = false;
@@ -189,19 +203,34 @@ export class RooSpawn {
                 return;
             }
 
-            const task = this.tasks.find(t => t.id === msg.id);
             switch (msg.type) {
-                case 'submitTask':
-                    task?.submit();
+                case 'submitTasks':
+                    for (const task of this.tasks) {
+                        if (msg.taskIds.includes(task.id)) {
+                            task.submit(false);
+                        }
+                    }
                     break;
-                case 'cancelTask':
-                    task?.cancel();
+                case 'cancelTasks':
+                    for (const task of this.tasks) {
+                        if (msg.taskIds.includes(task.id)) {
+                            task.cancel(false);
+                        }
+                    }
                     break;
-                case 'archiveTask':
-                    task?.archive();
+                case 'archiveTasks':
+                    for (const task of this.tasks) {
+                        if (msg.taskIds.includes(task.id)) {
+                            task.archive(false);
+                        }
+                    }
                     break;
-                case 'unarchiveTask':
-                    task?.unarchive();
+                case 'unarchiveTasks':
+                    for (const task of this.tasks) {
+                        if (msg.taskIds.includes(task.id)) {
+                            task.unarchive(false);
+                        }
+                    }
                     break;
             }
         });

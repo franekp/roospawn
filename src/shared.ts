@@ -20,8 +20,8 @@ export interface RendererInitializationData {
 }
 
 export type MessageFromRenderer = {
-    type: 'submitTask' | 'cancelTask' | 'archiveTask' | 'unarchiveTask'
-    id: string,
+    type: 'submitTasks' | 'cancelTasks' | 'archiveTasks' | 'unarchiveTasks'
+    taskIds: string[],
 } | {
     type: 'pauseWorker' | 'resumeWorker'
 } | {
