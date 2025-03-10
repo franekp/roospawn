@@ -38,8 +38,10 @@ export type MessageToRenderer = {
 };
 
 export interface Hooks {
-    onstart: ((task: Task) => string | undefined) | undefined;
-    oncomplete: ((task: Task) => string | undefined) | undefined;
-    onpause: ((task: Task) => string | undefined) | undefined;
-    onresume: ((task: Task) => string | undefined) | undefined;
+    onstart?: HookFunction;
+    oncomplete?: HookFunction;
+    onpause?: HookFunction;
+    onresume?: HookFunction;
 }
+
+export type HookFunction = (task: Task) => string | undefined | Promise<string | undefined>;

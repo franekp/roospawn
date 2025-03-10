@@ -108,6 +108,9 @@ def pause_task_flow():
 def resume_task_flow():
     api.resumeWorker()
 
+def execute_shell(command: str):
+    return api.executeShell(command)
+
 def develop():
     api.develop()
     return api.livePreview()

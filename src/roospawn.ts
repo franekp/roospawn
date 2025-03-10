@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ClineController, Status, MessagesRx, type Message, type MessagesTx } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
+import { HookKind, HookRun } from './hooks';
 
 
 export class Task implements ITask {
@@ -18,6 +19,7 @@ export class Task implements ITask {
     clineId?: string;
     tx?: MessagesTx;
     conversation: Message[] = [];
+    hookRuns: HookRun[] = [];
 
     constructor(prompt: string, mode: string, hooks?: Hooks) {
         this.id = uuidv4().slice(0, 5);
@@ -138,6 +140,35 @@ export class Task implements ITask {
     conversation_as_json(): string {
         return JSON.stringify(this.conversation);
     }
+
+    hookRunsAsJson(): string {
+        return JSON.stringify(this.hookRuns);
+    }
+
+    async runHook(hook: HookKind): Promise<HookRun> {
+        const rsp = roospawn!;
+        if (rsp.currentHookRun !== undefined) {
+            throw new Error('Running hook when the previous one has not finished yet');
+        }
+
+        const hookFunc = this.hooks?.[hook] ?? rsp.globalHooks[hook];
+        if (hookFunc === undefined) {
+            const run = new HookRun(hook);
+            this.hookRuns.push(run);
+            return run;
+        }
+        
+        const hookRun = new HookRun(hook);
+        this.hookRuns.push(hookRun);
+        rsp.currentHookRun = hookRun;
+        const command = await hookFunc(this);
+        if (command !== undefined) {
+            await rsp.currentHookRun!.command(command);
+        }
+        rsp.currentHookRun = undefined;
+
+        return hookRun;
+    }
 }
 
 export class RooSpawnStatus implements RendererInitializationData {
@@ -162,6 +193,8 @@ export class RooSpawn {
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
 
     wakeupWorker?: () => void;
+
+    currentHookRun?: HookRun;
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
@@ -257,9 +290,8 @@ export class RooSpawn {
                     task.status = 'running';
                     this.schedule_ui_repaint();
 
-                    const onstartResult = this.globalHooks.onstart !== undefined ? this.globalHooks.onstart(task) : undefined;
-                    console.log('onstartResult to execute', onstartResult);
-                    
+                    task.runHook('onstart');
+
                     return task;
                 });
 
@@ -392,6 +424,15 @@ export class RooSpawn {
     pauseWorker() {
         this.workerActive = false;
         this.schedule_ui_repaint();
+    }
+
+    executeShell(command: string): Promise<number> {
+        const currentHookRun = this.currentHookRun;
+        if (currentHookRun === undefined) {
+            throw new Error("Cannot execute shell commands outside hook context");
+        }
+
+        return currentHookRun.command(command).then(commandRun => commandRun.exitCode);
     }
 
     livePreview(): RooSpawnStatus {

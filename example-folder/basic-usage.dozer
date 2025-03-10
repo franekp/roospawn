@@ -7,7 +7,7 @@
     },
     {
       "kind": "code",
-      "value": "import roospawn as rsp\n\n@rsp.onstart\ndef onstart(task):\n    print(\"Task started\", task)\n    return f\"Task started: {task.id}\"\n\n@rsp.oncomplete\ndef oncomplete(task):\n    print(\"Task completed\", task)\n    return f\"Task completed: {task.id}\"\n\nrsp.live_preview()",
+      "value": "import roospawn as rsp\n\n@rsp.onstart\nasync def onstart(task):\n    print(\"Task started\", task)\n    res = await rsp.execute_shell(\"echo 'Hello'\")\n    print(res)\n    res = await rsp.execute_shell(\"echo 'Bye'\")\n    print(res)\n    return f\"echo 'On start!'\"\n\n@rsp.oncomplete\ndef oncomplete(task):\n    print(\"Task completed\", task)\n    return f\"echo 'On end!'\"\n\nrsp.live_preview()",
       "language": "python"
     },
     {
@@ -27,7 +27,17 @@
     },
     {
       "kind": "code",
-      "value": "task.resume()",
+      "value": "other_task._task.hookRunsAsJson()",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "import _roospawn as _rsp\n\n_rsp.currentHookRun\n",
+      "language": "python"
+    },
+    {
+      "kind": "code",
+      "value": "import roospawn as rsp\nres = rsp.execute_shell(\"echo 'Hello'\")\nres.then(lambda x: print(x))",
       "language": "python"
     },
     {
