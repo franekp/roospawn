@@ -79,7 +79,7 @@ export class ClineController {
         };
     }
 
-    async run(getTask: () => Task | undefined): Promise<{ channel?: MessagesRx, task: Task } | undefined> {
+    async run(getTask: () => Task | undefined | Promise<Task | undefined>): Promise<{ channel?: MessagesRx, task: Task } | undefined> {
         // We can run a Roo-Spawn task only if there is no other task running in the `ClineProvider`.
         // The waiter's condition is best effort to check whether some task is running in the provider.
         let waiter = new Waiter(() =>
@@ -92,7 +92,7 @@ export class ClineController {
 
         this.busy = true;
 
-        const task = getTask();
+        const task = await getTask();
 
         // If `task` is undefined, it means that there was some task for which we were waiting to run,
         // but the run-task-request was cancelled by the user in the meantime.

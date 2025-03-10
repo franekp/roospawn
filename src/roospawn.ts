@@ -161,12 +161,23 @@ export class Task implements ITask {
         const hookRun = new HookRun(hook);
         this.hookRuns.push(hookRun);
         rsp.currentHookRun = hookRun;
-        const command = await hookFunc(this);
-        if (command !== undefined) {
-            await rsp.currentHookRun!.command(command);
+        let command: string | undefined | null = null;
+        try {
+            command = await hookFunc(this);
+        } catch {
+            hookRun.failed = true;
+            rsp.currentHookRun = undefined;
+            return hookRun;
         }
-        rsp.currentHookRun = undefined;
 
+        if (command !== undefined) {
+            const cmdRun = await rsp.currentHookRun!.command(command);
+            if (cmdRun.exitCode !== 0) {
+                hookRun.failed = true;
+            }
+        }
+
+        rsp.currentHookRun = undefined;
         return hookRun;
     }
 }
@@ -278,7 +289,7 @@ export class RooSpawn {
 
             let task: Task | undefined = undefined;
             try {
-                const result = await this.clineController.run(() => {
+                const result = await this.clineController.run(async () => {
                     if (!this.workerActive) {
                         return;
                     }
@@ -290,7 +301,11 @@ export class RooSpawn {
                     task.status = 'running';
                     this.schedule_ui_repaint();
 
-                    task.runHook('onstart');
+                    let hookResult = await task.runHook('onstart');
+                    if (hookResult.failed) {
+                        task.status = 'error';
+                        return undefined;
+                    }
 
                     return task;
                 });

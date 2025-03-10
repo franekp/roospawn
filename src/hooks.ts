@@ -5,6 +5,7 @@ export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 export class HookRun {
     kind: HookKind;
     commands: CommandRun[] = [];
+    failed: boolean = false;
 
     /// Timestamp when the hook was triggered
     timestamp: number;
