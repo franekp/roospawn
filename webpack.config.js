@@ -80,7 +80,12 @@ const rendererConfig = {
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
+        test: /\.d\.ts$/,
+        exclude: /node_modules/,
+        loader: 'ignore-loader',
+      },
+      {
+        test: /(?<!\.d)\.tsx?$/,
         exclude: /node_modules/,
         use: [
           {

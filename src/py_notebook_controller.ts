@@ -5,6 +5,7 @@ import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as pyodide from 'pyodide';
 import * as path from 'path';
 import { RooSpawn, RooSpawnStatus } from './roospawn';
+import { RendererInitializationData } from './shared';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';
@@ -117,9 +118,11 @@ export class PyNotebookController {
             const result = await this._pyodide.runPythonAsync(code);
 
             if (result instanceof RooSpawnStatus) {
-                this._current_execution.appendOutputItems([
-                    vscode.NotebookCellOutputItem.json({ tasks: result.tasks, enabled: result.enabled }, result.mime_type)
-                ], this._current_output!);
+                const data: RendererInitializationData = { tasks: result.tasks, workerActive: result.workerActive };
+                this._current_execution.appendOutputItems(
+                    vscode.NotebookCellOutputItem.json(data, result.mime_type),
+                    this._current_output!
+                );
             } else if (result instanceof this._pyodide.ffi.PyProxy) {
                 const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));
                 if (isDict) {
