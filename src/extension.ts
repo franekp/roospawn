@@ -5,7 +5,7 @@ import { ClineController } from './cline_controller';
 import { RooSpawn, Task } from './roospawn';
 
 export async function activate(context: vscode.ExtensionContext) {
-    const outputChannel = vscode.window.createOutputChannel('Task Dozer');
+    const outputChannel = vscode.window.createOutputChannel('RooSpawn');
     outputChannel.appendLine('RooSpawn extension is now running!');
 
     // Get Cline API
