@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ClineController, Status, MessagesRx, type Message, type MessagesTx } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
-import { HookKind, HookRun } from './hooks';
+import { CommandRun, HookKind, HookRun } from './hooks';
 
 
 export class Task implements ITask {
@@ -175,6 +175,9 @@ export class Task implements ITask {
             if (cmdRun.exitCode !== 0) {
                 hookRun.failed = true;
             }
+            if (roospawn !== undefined) {
+                roospawn.outputChannel.append('--------\n' + cmdRun.toString() + '\n--------\n');
+            }
         }
 
         rsp.currentHookRun = undefined;
@@ -209,7 +212,7 @@ export class RooSpawn {
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
-        private readonly outputChannel: vscode.OutputChannel,
+        readonly outputChannel: vscode.OutputChannel,
         private readonly clineController: ClineController,
         public tasks: Task[]
     ) {
@@ -289,26 +292,30 @@ export class RooSpawn {
 
             let task: Task | undefined = undefined;
             try {
-                const result = await this.clineController.run(async () => {
-                    if (!this.workerActive) {
-                        return;
-                    }
-                    const task = this.getFirstQueuedTask();
-                    if (task === undefined) {
-                        return;
-                    }
+                const result = await this.clineController.run(
+                    () => {
+                        if (!this.workerActive) {
+                            return;
+                        }
+                        const task = this.getFirstQueuedTask();
+                        if (task === undefined) {
+                            return;
+                        }
 
-                    task.status = 'running';
-                    this.schedule_ui_repaint();
+                        task.status = 'running';
+                        this.schedule_ui_repaint();
 
-                    let hookResult = await task.runHook('onstart');
-                    if (hookResult.failed) {
-                        task.status = 'error';
-                        return undefined;
+                        return task;
+                    },
+                    async (task, historyItem) => {
+                        const hookKind: HookKind = (historyItem === undefined) ? 'onstart' : 'onresume';
+                        let hookResult = await task.runHook(hookKind);
+                        if (hookResult.failed) {
+                            task.status = 'error';
+                        }
+                        return { failed: hookResult.failed };
                     }
-
-                    return task;
-                });
+                );
 
                 if (result === undefined) {
                     // There is no queued task (probably one was deleted or paused)
@@ -350,17 +357,26 @@ export class RooSpawn {
             let t = task.deref();
             if (t !== undefined) {
                 if (value.type === 'status') {
-                    t.status = value.status;
-                    switch (t.status) {
+                    switch (value.status) {
                         case 'completed':
-                            const hooks = t.hooks ?? this.globalHooks;
-                            if (hooks.oncomplete) {
-                                const result = hooks.oncomplete(t);
-                                console.log('oncompleteResult to execute', result);
+                            const hookResult1 = await t.runHook('oncomplete');
+                            if (hookResult1.failed) {
+                                t.status = 'error';
+                            } else {
+                                t.status = 'completed';
                             }
                             break;
-                        default:
-                            console.log('task.status', t.status);
+                        case 'aborted':
+                        case 'asking':
+                            const hookResult2 = await t.runHook('onpause');
+                            if (hookResult2.failed) {
+                                t.status = 'error';
+                            } else {
+                                t.status = value.status;
+                            }
+                            break;
+                        case 'error':
+                            t.status = 'error';
                             break;
                     }
                     this.schedule_ui_repaint();
@@ -441,13 +457,15 @@ export class RooSpawn {
         this.schedule_ui_repaint();
     }
 
-    executeShell(command: string): Promise<number> {
+    async executeShell(command: string): Promise<CommandRun> {
         const currentHookRun = this.currentHookRun;
         if (currentHookRun === undefined) {
             throw new Error("Cannot execute shell commands outside hook context");
         }
 
-        return currentHookRun.command(command).then(commandRun => commandRun.exitCode);
+        const cmdRun = await currentHookRun.command(command);
+        this.outputChannel.append('--------\n' + cmdRun.toString() + '\n--------\n');
+        return cmdRun;
     }
 
     livePreview(): RooSpawnStatus {
