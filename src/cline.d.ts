@@ -46,10 +46,7 @@ export interface ClineAPI {
 
 // `ClineProvider` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/core/webview/ClineProvider.ts>
 export interface ClineProvider {
-    /**
-     * The current sidebar state.
-     */
-    cline?: Cline,
+    getCurrentCline(): Cline | undefined;
 
     // Note: the "channel" parameter is not part of the original ClineProvider interface.
     // We need to pass the channel when we run a Roo-Spawn task. 

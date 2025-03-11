@@ -32,8 +32,9 @@ export class ClineController {
         // If the provider already has a `Cline` instance, attach state tracking to the instance.
         // The instance can be conducting only non-Roo-Spawn task, because `ClineController` is
         // created before starting the first Roo-Spawn task.
-        if (provider.cline !== undefined) {
-            this.attachObservingTrackerToCline(provider.cline);
+        const cline = provider.getCurrentCline();
+        if (cline !== undefined) {
+            this.attachObservingTrackerToCline(cline);
         }
 
         // Override the `initClineWithTask` and `initClineWithHistoryItem` methods to attach state tracking
@@ -51,11 +52,12 @@ export class ClineController {
             this.busy = true;
 
             await oldInitClineWithTask(task, images);
+            const cline = provider.getCurrentCline()!;
 
             if (params !== undefined) {
-                controller.attachControllingTrackerToCline(provider.cline!, params);
+                controller.attachControllingTrackerToCline(cline, params);
             } else {
-                controller.attachObservingTrackerToCline(provider.cline!);
+                controller.attachObservingTrackerToCline(cline);
             }
         };
 
@@ -64,6 +66,7 @@ export class ClineController {
             const clineId = historyItem.id;
 
             await oldInitClineWithHistoryItem(historyItem);
+            const cline = provider.getCurrentCline()!;
 
             const task = this.tasks.find(task => task.clineId === clineId);
             if (task?.tx !== undefined) {
@@ -71,10 +74,10 @@ export class ClineController {
                     channel: task.tx,
                     timeout: 300*1000,
                 };
-                controller.attachControllingTrackerToCline(provider.cline!, params);
+                controller.attachControllingTrackerToCline(cline, params);
                 task.clineId = params.clineId;
             } else {
-                controller.attachObservingTrackerToCline(provider.cline!);
+                controller.attachObservingTrackerToCline(cline);
             }
         };
     }
@@ -82,11 +85,12 @@ export class ClineController {
     async run(getTask: () => Task | undefined | Promise<Task | undefined>): Promise<{ channel?: MessagesRx, task: Task } | undefined> {
         // We can run a Roo-Spawn task only if there is no other task running in the `ClineProvider`.
         // The waiter's condition is best effort to check whether some task is running in the provider.
-        let waiter = new Waiter(() =>
-            !this.busy
-            && !this.provider.cline?.isStreaming
-            && !(this.provider.cline?.clineMessages[-1]?.type === 'ask' && !this.provider.cline?.abort)
-        );
+        let waiter = new Waiter(() => {
+            const cline = this.provider.getCurrentCline();
+            return !this.busy
+                && !cline?.isStreaming
+                && !(cline?.clineMessages[-1]?.type === 'ask' && !cline?.abort);
+        });
         this.waiters.add(waiter);
         await waiter.wait();
 
@@ -245,4 +249,3 @@ export class ClineController {
         };
     }
 }
-
