@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
-import { ClineController, Status, MessagesRx, type Message, type MessagesTx } from './cline_controller';
+import { IClineController, Message, MessagesRx, MessagesTx } from './cline_controller';
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 import { CommandRun, HookKind, HookRun } from './hooks';
@@ -213,7 +213,7 @@ export class RooSpawn {
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         readonly outputChannel: vscode.OutputChannel,
-        private readonly clineController: ClineController,
+        private readonly clineController: IClineController,
         public tasks: Task[]
     ) {
         this.worker();
@@ -307,8 +307,8 @@ export class RooSpawn {
 
                         return task;
                     },
-                    async (task, historyItem) => {
-                        const hookKind: HookKind = (historyItem === undefined) ? 'onstart' : 'onresume';
+                    async (task, isResuming) => {
+                        const hookKind: HookKind = isResuming ? 'onresume' : 'onstart';
                         let hookResult = await task.runHook(hookKind);
                         if (hookResult.failed) {
                             task.status = 'error';

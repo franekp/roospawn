@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
-import { ClineController } from './cline_controller';
+import { ClineController } from './controller-3.8.4/cline_controller';
 import { RooSpawn, Task } from './roospawn';
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -13,7 +13,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!ai_extension) {
         throw new Error('roospawn: roo-cline extension not found');
     }
-    const ai_api = ai_extension.exports;
+    const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
     const clineProvider = ai_api.sidebarProvider;
 
     // Create main objects with proper dependency injection

@@ -1,4 +1,4 @@
-import { ControllingTrackerParams } from "./cline_controller";
+import { type ControllingTrackerParams } from "./cline_controller";
 
 // <https://github.com/RooVetGit/Roo-Code/blob/main/src/exports/cline.d.ts>
 export interface ClineAPI {
