@@ -20,10 +20,10 @@ export class ClineController implements IClineController {
     constructor(private api: RooCodeAPI, private tasks: Task[]) {
         // attach events to the API
         this.api.on('message', ({ taskId, message }) => this.handleMessage(taskId, message));
-        this.api.on('taskStarted', ({ taskId }) => this.handleTaskStarted(taskId));
-        this.api.on('taskSpawned', ({ taskId, childTaskId }) => this.handleTaskSpawned(taskId, childTaskId));
-        this.api.on('taskAskResponded', ({ taskId }) => this.handleTaskAskResponded(taskId));
-        this.api.on('taskAborted', ({ taskId }) => this.handleTaskAborted(taskId));
+        this.api.on('taskStarted', (taskId) => this.handleTaskStarted(taskId));
+        this.api.on('taskSpawned', (taskId, childTaskId) => this.handleTaskSpawned(taskId, childTaskId));
+        this.api.on('taskAskResponded', (taskId) => this.handleTaskAskResponded(taskId));
+        this.api.on('taskAborted', (taskId) => this.handleTaskAborted(taskId));
     }
 
     async run(
@@ -64,14 +64,14 @@ export class ClineController implements IClineController {
         }
 
         const clineId = task.clineId;
-        const isResuming = await this.api.isTaskInHistory(clineId);
+        const isResuming = clineId !== undefined ? await this.api.isTaskInHistory(clineId) : false;
         if ((await beforeStart(task, isResuming)).failed) {
             return Promise.resolve(undefined);
         }
         
         if (isResuming) {
             try {
-                await this.api.resumeTask(clineId);
+                await this.api.resumeTask(clineId!);
                 return { task };
             } catch {
                 // If failed, fall back to the "new task" path.
