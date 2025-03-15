@@ -16,21 +16,9 @@
 // TODO: handle subtasks and task preemption
 
 import { Channel, Waiters, Waiter, timeout } from '../async_utils';
-import { Cline, ClineAsk, ClineProvider, ClineSay, HistoryItem } from './cline';
+import { Cline, ClineProvider, HistoryItem } from './cline';
 import { Task } from '../roospawn';
-
-
-export type Message =
-    | { type: 'say', say: ClineSay, text?: string, images?: string[] }
-    | { type: 'ask', ask: ClineAsk, text?: string }
-    | { type: 'status', status: Status }
-    | { type: 'exitMessageHandler' }
-    ;
-
-export type Status = 'completed' | 'aborted' | 'asking' | 'error';
-
-export type MessagesTx = Channel<Message>;
-export type MessagesRx = AsyncGenerator<Message, void, void>;
+import { MessagesTx, MessagesRx, Message, IClineController } from '../cline_controller';
 
 export interface ControllingTrackerParams {
     channel: MessagesTx;
@@ -38,7 +26,7 @@ export interface ControllingTrackerParams {
     clineId?: string;
 }
 
-export class ClineController {
+export class ClineController implements IClineController {
     /// We set this flag to `true` when we know that some task is running within controlled `ClineProvider`.
     private busy: boolean = false;
     private waiters: Waiters = new Waiters();
@@ -49,7 +37,6 @@ export class ClineController {
         // If the provider already has a `Cline` instance, attach state tracking to the instance.
         // The instance can be conducting only non-Roo-Spawn task, because `ClineController` is
         // created before starting the first Roo-Spawn task.
-        console.log(provider, Object.keys(provider));
         const cline = provider.getCurrentCline();
         if (cline !== undefined) {
             this.attachObservingTrackerToCline(cline);
@@ -117,7 +104,7 @@ export class ClineController {
 
         this.busy = true;
 
-        const task = await getTask();
+        const task = getTask();
 
         // If `task` is undefined, it means that there was some task for which we were waiting to run,
         // but the run-task-request was cancelled by the user in the meantime.
@@ -128,9 +115,12 @@ export class ClineController {
         }
 
         const clineId = task.clineId;
-        const historyItem = clineId !== undefined
-            ? (await this.provider.getTaskWithId(clineId)).historyItem
-            : undefined;
+        let historyItem: HistoryItem | undefined = undefined;
+        if (clineId !== undefined) {
+            try {
+                historyItem = (await this.provider.getTaskWithId(clineId)).historyItem;
+            } catch {}
+        }
 
         const isResuming = historyItem !== undefined;
         if ((await beforeStart(task, isResuming)).failed) {
