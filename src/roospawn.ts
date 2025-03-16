@@ -214,7 +214,7 @@ export class RooSpawn {
         private readonly extensionContext: vscode.ExtensionContext,
         readonly outputChannel: vscode.OutputChannel,
         private readonly clineController: IClineController,
-        public tasks: Task[]
+        public readonly tasks: Task[]
     ) {
         this.worker();
         this.outputChannel.appendLine('RooSpawn initialized');
@@ -569,7 +569,8 @@ export class RooSpawn {
             }
         }
 
-        this.tasks = newTasks;
+        this.tasks.length = 0;  // clear the array
+        this.tasks.push(...newTasks);
         this.schedule_ui_repaint();
     }
 }

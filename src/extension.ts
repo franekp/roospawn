@@ -13,6 +13,13 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!ai_extension) {
         throw new Error('roospawn: roo-cline extension not found');
     }
+    const ai_exports: any = ai_extension.exports;
+    if (ai_exports.resumeTask) {
+        const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
+    } else {
+        const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
+    }
+
     const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
     const clineProvider = ai_api.sidebarProvider;
 
