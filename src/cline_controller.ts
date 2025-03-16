@@ -14,8 +14,8 @@ export interface IClineController {
 export type Message =
     | { type: 'say', say: ClineSay, text?: string, images?: string[] }
     | { type: 'ask', ask: ClineAsk, text?: string }
-    | { type: 'status', status: Status }
-    | { type: 'exitMessageHandler' }
+    | { type: 'status', status: Status }  // this is added by RooSpawn
+    | { type: 'exitMessageHandler' }  // this is added by RooSpawn
     ;
 
 export type MessagesTx = Channel<Message>;

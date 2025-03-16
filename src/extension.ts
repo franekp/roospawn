@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
-import { ClineController } from './controller-3.8.4/cline_controller';
 import { RooSpawn, Task } from './roospawn';
+import { IClineController } from './cline_controller';
 
 export async function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('RooSpawn');
@@ -13,19 +13,22 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!ai_extension) {
         throw new Error('roospawn: roo-cline extension not found');
     }
-    const ai_exports: any = ai_extension.exports;
-    if (ai_exports.resumeTask) {
+
+    const tasks: Task[] = [];
+    let clineController: IClineController;
+
+    if (ai_extension.exports.resumeTask) {
         const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
+        const ClineController = await import('./controller-3.8.6-dev/cline_controller').then(module => module.ClineController);
+        clineController = new ClineController(ai_api, tasks);
+        vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
+        const ClineController = await import('./controller-3.8.4/cline_controller').then(module => module.ClineController);
+        clineController = new ClineController(ai_api.sidebarProvider, tasks);
+        vscode.window.showInformationMessage('RooSpawn: Using old Cline API');
     }
 
-    const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
-    const clineProvider = ai_api.sidebarProvider;
-
-    // Create main objects with proper dependency injection
-    const tasks: Task[] = [];
-    const clineController = new ClineController(clineProvider, tasks);
     const rooSpawn = new RooSpawn(context, outputChannel, clineController, tasks);
     const notebookController = new PyNotebookController(context, outputChannel, rooSpawn);
 
