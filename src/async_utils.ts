@@ -113,8 +113,11 @@ export class Waiter {
     }
 }
 
-export function timeout<T>(ms: number, promise: Promise<T>): Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }> {
+export function timeout<T>(ms: number, promise?: Promise<T>): Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }> {
     const t = new Promise<{ reason: 'timeout' }>((resolve) => setTimeout(() => resolve({ reason: 'timeout' }), ms));
+    if (promise === undefined) {
+        return t;
+    }
     const p: Promise<{ reason: 'promise', value: T }> = promise.then(value => ({ reason: 'promise', value }));
     return Promise.race([t, p]);
 }
