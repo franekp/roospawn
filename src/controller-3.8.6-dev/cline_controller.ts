@@ -26,6 +26,11 @@ export class ClineController implements IClineController {
         this.api.on('taskAborted', (taskId) => this.handleTaskAborted(taskId));
     }
 
+    async waitUntilNotBusy(): Promise<void> { await new Promise(resolve => {}); }  // never resolves
+    async canResumeTask(task: Task): Promise<boolean> { throw new Error('Not implemented'); }
+    async resumeTask(task: Task): Promise<void> { throw new Error('Not implemented'); }
+    async startTask(task: Task): Promise<MessagesRx> { throw new Error('Not implemented'); }
+
     async run(
         getTask: () => Task | undefined,
         beforeStart: (task: Task, isResuming: boolean) => Promise<{failed: boolean}>,

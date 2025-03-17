@@ -9,6 +9,11 @@ export interface IClineController {
         getTask: () => Task | undefined,
         beforeStart: (task: Task, isResuming: boolean) => Promise<{ failed: boolean }>,
     ): Promise<{ channel?: MessagesRx, task: Task } | undefined>;
+
+    waitUntilNotBusy(): Promise<void>;
+    canResumeTask(task: Task): Promise<boolean>;
+    resumeTask(task: Task): Promise<void>;
+    startTask(task: Task): Promise<MessagesRx>;
 }
 
 export type Message =

@@ -87,6 +87,56 @@ export class ClineController implements IClineController {
         };
     }
 
+    async waitUntilNotBusy(): Promise<void> {
+        // We can run a Roo-Spawn task only if there is no other task running in the `ClineProvider`.
+        // The waiter's condition is best effort to check whether some task is running in the provider.
+        let waiter = new Waiter(() => {
+            const cline = this.provider.getCurrentCline();
+            return !this.busy
+                && !cline?.isStreaming
+                && !(cline?.clineMessages[-1]?.type === 'ask' && !cline?.abort);
+        });
+        this.waiters.add(waiter);
+        await waiter.wait();
+    }
+
+    async canResumeTask(task: Task): Promise<boolean> {
+        if (task.clineId === undefined) {
+            return false;
+        }
+
+        const historyItem = (await this.provider.getTaskWithId(task.clineId)).historyItem;
+        return historyItem !== undefined;
+    }
+
+    async resumeTask(task: Task): Promise<void> {
+        if (task.clineId === undefined) {
+            throw new Error('Task has no Cline ID');
+        }
+
+        const historyItem = (await this.provider.getTaskWithId(task.clineId)).historyItem;
+        if (historyItem === undefined) {
+            throw new Error('Task has no history item');
+        }
+
+        await this.provider.initClineWithHistoryItem(historyItem);
+    }
+
+    async startTask(task: Task): Promise<MessagesRx> {
+        const { tx, rx } = Channel.create<Message>();
+
+        const params: ControllingTrackerParams = {
+            channel: tx,
+            timeout: 10000,
+        };
+
+        await this.provider.initClineWithTask(task.prompt, undefined, params);
+        task.clineId = params.clineId;
+        task.tx = tx;
+
+        return rx;
+    }
+
     async run(
         getTask: () => Task | undefined,
         beforeStart: (task: Task, isResuming: boolean) => Promise<{failed: boolean}>,
