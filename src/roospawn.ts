@@ -4,6 +4,7 @@ import { IClineController, Message, MessagesRx, MessagesTx } from './cline_contr
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 import { CommandRun, HookKind, HookRun } from './hooks';
+import { Worker } from './worker';
 
 
 export class Task implements ITask {
@@ -38,7 +39,7 @@ export class Task implements ITask {
                 this.status = 'queued';
                 if (roospawn) {
                     roospawn.schedule_ui_repaint();
-                    roospawn.wakeupWorker?.();
+                    roospawn.worker.wakeup?.();
                 }
                 break;
             case 'queued':
@@ -61,7 +62,7 @@ export class Task implements ITask {
                 this.status = 'queued';
                 if (roospawn) {
                     roospawn.schedule_ui_repaint();
-                    roospawn.wakeupWorker?.();
+                    roospawn.worker.wakeup?.();
                 }
                 break;
         }
@@ -201,14 +202,12 @@ export class RooSpawn {
         onresume: undefined,
     };
 
-    workerActive: boolean = true;
-
     _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     tasks_updated: vscode.Event<void> = this._tasks_updated.event;
 
-    wakeupWorker?: () => void;
-
     currentHookRun?: HookRun;
+
+    worker: Worker;
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
@@ -216,7 +215,13 @@ export class RooSpawn {
         private readonly clineController: IClineController,
         public readonly tasks: Task[]
     ) {
-        this.worker();
+        this.worker = new Worker(
+            () => this.getFirstQueuedTask(),
+            () => this.schedule_ui_repaint(),
+            this.clineController,
+            this.outputChannel,
+        );
+        this.worker.run();
         this.outputChannel.appendLine('RooSpawn initialized');
         roospawn = this;
 
@@ -227,7 +232,7 @@ export class RooSpawn {
                 await messageChannel.postMessage({
                     type: 'statusUpdated',
                     tasks: [...this.tasks],
-                    workerActive: this.workerActive,
+                    workerActive: this.worker.active,
                 } as MessageToRenderer);
             })
         );
@@ -283,110 +288,8 @@ export class RooSpawn {
         });
     }
 
-    private async worker() {
-        while (true) {
-            while (!this.workerActive || this.getFirstQueuedTask() === undefined) {
-                await new Promise<void>(resolve => { this.wakeupWorker = resolve; });
-                this.wakeupWorker = undefined;
-            }
-
-            let task: Task | undefined = undefined;
-            try {
-                const result = await this.clineController.run(
-                    () => {
-                        if (!this.workerActive) {
-                            return;
-                        }
-                        const task = this.getFirstQueuedTask();
-                        if (task === undefined) {
-                            return;
-                        }
-
-                        task.status = 'running';
-                        this.schedule_ui_repaint();
-
-                        return task;
-                    },
-                    async (task, isResuming) => {
-                        const hookKind: HookKind = isResuming ? 'onresume' : 'onstart';
-                        let hookResult = await task.runHook(hookKind);
-                        if (hookResult.failed) {
-                            task.status = 'error';
-                        }
-                        return { failed: hookResult.failed };
-                    }
-                );
-
-                if (result === undefined) {
-                    // There is no queued task (probably one was deleted or paused)
-                    // or RooSpawn is disabled, so we need to wait more.
-                    continue;
-                }
-
-                task = result.task;
-
-                if (result.channel !== undefined) {
-                    this.handleTaskMessages(new WeakRef(task), result.channel);
-                }
-            } catch (e) {
-                if (task !== undefined) {
-                    task.status = 'error';
-                    console.error('Error running task', task, e);
-                } else {
-                    console.error('Error in RooSpawn', e);
-                }
-            }
-
-            this.schedule_ui_repaint();
-        }
-    }
-
     private getFirstQueuedTask(): Task | undefined {
         return this.tasks.find(t => t.status === 'queued');
-    }
-
-    private async handleTaskMessages(task: WeakRef<Task>, rx: MessagesRx) {
-        let msg: IteratorResult<Message, void>;
-        while (!(msg = await rx.next()).done) {
-            const value = msg.value as Message;
-
-            if (value.type === 'exitMessageHandler') {
-                return;
-            }
-
-            let t = task.deref();
-            if (t !== undefined) {
-                if (value.type === 'status') {
-                    switch (value.status) {
-                        case 'completed':
-                            const hookResult1 = await t.runHook('oncomplete');
-                            if (hookResult1.failed) {
-                                t.status = 'error';
-                            } else {
-                                t.status = 'completed';
-                            }
-                            break;
-                        case 'aborted':
-                        case 'asking':
-                            const hookResult2 = await t.runHook('onpause');
-                            if (hookResult2.failed) {
-                                t.status = 'error';
-                            } else {
-                                t.status = value.status;
-                            }
-                            break;
-                        case 'error':
-                            t.status = 'error';
-                            break;
-                    }
-                    this.schedule_ui_repaint();
-                } else {
-                    t.conversation.push(value);
-                }
-            } else {
-                return;
-            }
-        }
     }
 
     schedule_ui_repaint() {
@@ -447,13 +350,13 @@ export class RooSpawn {
     }
 
     resumeWorker() {
-        this.workerActive = true;
-        this.wakeupWorker?.();
+        this.worker.active = true;
+        this.worker.wakeup?.();
         this.schedule_ui_repaint();
     }
 
     pauseWorker() {
-        this.workerActive = false;
+        this.worker.active = false;
         this.schedule_ui_repaint();
     }
 
@@ -469,7 +372,7 @@ export class RooSpawn {
     }
 
     livePreview(): RooSpawnStatus {
-        return new RooSpawnStatus([...this.tasks], this.workerActive);
+        return new RooSpawnStatus([...this.tasks], this.worker.active);
     }
 
     async showRooCodeSidebar(): Promise<void> {
