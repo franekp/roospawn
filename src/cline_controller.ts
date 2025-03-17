@@ -5,11 +5,6 @@ import { Channel } from './async_utils';
 import { Task } from './roospawn';
 
 export interface IClineController {
-    run(
-        getTask: () => Task | undefined,
-        beforeStart: (task: Task, isResuming: boolean) => Promise<{ failed: boolean }>,
-    ): Promise<{ channel?: MessagesRx, task: Task } | undefined>;
-
     waitUntilNotBusy(): Promise<void>;
     canResumeTask(task: Task): Promise<boolean>;
     resumeTask(task: Task): Promise<void>;

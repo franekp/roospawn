@@ -137,65 +137,6 @@ export class ClineController implements IClineController {
         return rx;
     }
 
-    async run(
-        getTask: () => Task | undefined,
-        beforeStart: (task: Task, isResuming: boolean) => Promise<{failed: boolean}>,
-    ): Promise<{ channel?: MessagesRx, task: Task } | undefined> {
-        // We can run a Roo-Spawn task only if there is no other task running in the `ClineProvider`.
-        // The waiter's condition is best effort to check whether some task is running in the provider.
-        let waiter = new Waiter(() => {
-            const cline = this.provider.getCurrentCline();
-            return !this.busy
-                && !cline?.isStreaming
-                && !(cline?.clineMessages[-1]?.type === 'ask' && !cline?.abort);
-        });
-        this.waiters.add(waiter);
-        await waiter.wait();
-
-        this.busy = true;
-
-        const task = getTask();
-
-        // If `task` is undefined, it means that there was some task for which we were waiting to run,
-        // but the run-task-request was cancelled by the user in the meantime.
-        if (task === undefined) {
-            this.busy = false;
-            this.waiters.wake();
-            return Promise.resolve(undefined);
-        }
-
-        const clineId = task.clineId;
-        let historyItem: HistoryItem | undefined = undefined;
-        if (clineId !== undefined) {
-            try {
-                historyItem = (await this.provider.getTaskWithId(clineId)).historyItem;
-            } catch {}
-        }
-
-        const isResuming = historyItem !== undefined;
-        if ((await beforeStart(task, isResuming)).failed) {
-            return Promise.resolve(undefined);
-        }
-        
-        if (historyItem === undefined) {
-            const { tx, rx } = Channel.create<Message>();
-
-            const params: ControllingTrackerParams = {
-                channel: tx,
-                timeout: 10000,
-            };
-
-            await this.provider.initClineWithTask(task.prompt, undefined, params);
-            task.clineId = params.clineId;
-            task.tx = tx;
-
-            return { channel: rx, task };
-        } else {
-            await this.provider.initClineWithHistoryItem(historyItem);
-            return { task };
-        }
-    }
-
     attachControllingTrackerToCline(cline: Cline, params: ControllingTrackerParams) {
         console.info("Attaching controlling tracker to Cline: ", cline);
         // We can set busy to false only once.

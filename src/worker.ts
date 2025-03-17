@@ -24,52 +24,48 @@ export class Worker {
 
             let task: Task | undefined = undefined;
             try {
-                const result = await this.clineController.run(
-                    () => {
-                        if (!this.active) {
-                            return;
-                        }
-                        const task = this.nextTask();
-                        if (task === undefined) {
-                            return;
-                        }
+                await this.clineController.waitUntilNotBusy();
 
-                        task.status = 'running';
-                        this.scheduleUiRepaint();
-
-                        return task;
-                    },
-                    async (task, isResuming) => {
-                        const hookKind: HookKind = isResuming ? 'onresume' : 'onstart';
-                        let hookResult = await task.runHook(hookKind);
-                        if (hookResult.failed) {
-                            task.status = 'error';
-                        }
-                        return { failed: hookResult.failed };
-                    }
-                );
-
-                if (result === undefined) {
-                    // There is no queued task (probably one was deleted or paused)
-                    // or RooSpawn is disabled, so we need to wait more.
-                    continue;
+                // While waiting for Roo Code to be ready, RooSpawn worker may have been paused or
+                // the next task may have been changed or all tasks may have been cancelled.
+                task = this.nextTask();
+                if (!this.active || task === undefined) {
+                    continue;  // wait until there's something to do
                 }
 
-                task = result.task;
+                task.status = 'running';
+                this.scheduleUiRepaint();
 
-                if (result.channel !== undefined) {
-                    this.handleTaskMessages(new WeakRef(task), result.channel);
+                const isResuming = await this.clineController.canResumeTask(task);
+
+                const hookResult = await task.runHook(isResuming ? 'onresume' : 'onstart');
+                if (hookResult.failed) {
+                    task.status = 'error';
+                    this.scheduleUiRepaint();
+                    continue;  // move on to the next task
                 }
+                
+                if (isResuming) {
+                    await this.clineController.resumeTask(task);
+                    // when resuming, we don't need to handle messages, because the "thread"
+                    // that handles messages has been started when the task was started and
+                    // it will continue to handle messages.
+                } else {
+                    const channel = await this.clineController.startTask(task);
+                    // we don't await handleTaskMessages(), message handling is
+                    // a separate "thread", independent from the worker
+                    this.handleTaskMessages(new WeakRef(task), channel);
+                }
+                
             } catch (e) {
                 if (task !== undefined) {
                     task.status = 'error';
-                    console.error('Error running task', task, e);
+                    this.scheduleUiRepaint();
+                    console.error(`Error in RooSpawn task #${task.id}`, e);
                 } else {
                     console.error('Error in RooSpawn', e);
                 }
             }
-
-            this.scheduleUiRepaint();
         }
     }
 
