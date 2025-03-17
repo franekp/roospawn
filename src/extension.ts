@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (ai_extension.exports.resumeTask) {
         const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
         const ClineController = await import('./controller-3.8.6-dev/cline_controller').then(module => module.ClineController);
-        clineController = new ClineController(ai_api, tasks);
+        clineController = new ClineController(ai_api, tasks) as any;
         vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;

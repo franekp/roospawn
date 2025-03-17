@@ -10,7 +10,7 @@ export interface ControllingTrackerParams {
     clineId?: string;
 }
 
-export class ClineController implements IClineController {
+export class ClineController /* implements IClineController */ {
     // TODO: add a map of "taskId" -> ControllingTrackerParams
     
     /// We set this flag to `true` when we know that some task is running within controlled `ClineProvider`.
