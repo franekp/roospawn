@@ -16,22 +16,22 @@ export class Worker {
     ) {}
 
     async run() {
-        this.clineController.onUserChangedTask((change) => {
-            switch (change.type) {
+        this.clineController.onUserSwitchedTask((taskSwitch) => {
+            switch (taskSwitch.type) {
                 case 'start_untracked_task':
                     return { timeoutMs: 'no_timeout' };
                 case 'resume_untracked_task':
                     return { timeoutMs: 'no_timeout' };
                 case 'resume_tracked_task':
-                    const runResumeHook = async () => {
-                        const hookResult = await change.task.runHook('onresume');
+                    const runResumeHook = async (task: Task) => {
+                        const hookResult = await task.runHook('onresume');
                         if (hookResult.failed) {
-                            change.task.status = 'error';
+                            task.status = 'error';
                             this.scheduleUiRepaint();
                             vscode.window.showErrorMessage('Failed to run onresume hook');
                         }
                     };
-                    return { timeoutMs: 300 * 1000, waitBeforeStart: runResumeHook() };
+                    return { timeoutMs: 300 * 1000, waitBeforeStart: runResumeHook(taskSwitch.task) };
             }
         });
 

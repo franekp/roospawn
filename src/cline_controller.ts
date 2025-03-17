@@ -9,13 +9,13 @@ export interface IClineController {
     canResumeTask(task: Task): Promise<boolean>;
     resumeTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<void>;
     startTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<MessagesRx>;
-    onUserChangedTask(handler: (change: UserTaskChange) => {
+    onUserSwitchedTask(handler: (taskSwitch: UserTaskSwitch) => {
         timeoutMs: 'no_timeout' | number,
         waitBeforeStart?: Promise<void>
     }): void;
 }
 
-export type UserTaskChange =
+export type UserTaskSwitch =
     | { type: 'start_untracked_task' }
     | { type: 'resume_untracked_task' }
     | { type: 'resume_tracked_task', task: Task }

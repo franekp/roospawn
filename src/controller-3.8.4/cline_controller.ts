@@ -18,7 +18,7 @@
 import { Channel, Waiters, Waiter, timeout } from '../async_utils';
 import { Cline, ClineProvider, HistoryItem } from './cline';
 import { Task } from '../roospawn';
-import { MessagesTx, MessagesRx, Message, IClineController, UserTaskChange } from '../cline_controller';
+import { MessagesTx, MessagesRx, Message, IClineController, UserTaskSwitch } from '../cline_controller';
 
 export interface ControllingTrackerParams {
     channel: MessagesTx;
@@ -31,16 +31,16 @@ export class ClineController implements IClineController {
     private busy: boolean = false;
     private waiters: Waiters = new Waiters();
 
-    private _onUserChangedTask: ((change: UserTaskChange) => {
+    private _onUserSwitchedTask: ((taskSwitch: UserTaskSwitch) => {
         timeoutMs: 'no_timeout' | number,
         waitBeforeStart?: Promise<void>
     }) = () => ({ timeoutMs: 'no_timeout' });
 
-    onUserChangedTask(handler: (change: UserTaskChange) => {
+    onUserSwitchedTask(handler: (taskSwitch: UserTaskSwitch) => {
         timeoutMs: 'no_timeout' | number,
         waitBeforeStart?: Promise<void>
     }): void {
-        this._onUserChangedTask = handler;
+        this._onUserSwitchedTask = handler;
     }
 
     constructor(private provider: ClineProvider, private tasks: Task[]) {
@@ -70,10 +70,10 @@ export class ClineController implements IClineController {
 
             let timeoutMs: 'no_timeout' | number = 'no_timeout';
             if (params === undefined) {
-                // Currently in onUserChangedTask('start_untracked_task') we always return
+                // Currently in onUserSwitchedTask('start_untracked_task') we always return
                 // `{ timeoutMs: 'no_timeout', waitBeforeStart: undefined }`, but we do handle
                 // this case generically, so that we are free to change this behaviour in the future.
-                const handler = this._onUserChangedTask({ type: 'start_untracked_task' });
+                const handler = this._onUserSwitchedTask({ type: 'start_untracked_task' });
                 timeoutMs = handler.timeoutMs;
                 if (handler.waitBeforeStart !== undefined) {
                     await handler.waitBeforeStart;
@@ -98,16 +98,16 @@ export class ClineController implements IClineController {
 
             // If timeoutMs is provided, it means that the resume is done by Roospawn, not by the user.
             if (timeoutMs === undefined && task?.tx !== undefined) {
-                const handler = this._onUserChangedTask({ type: 'resume_tracked_task', task });
+                const handler = this._onUserSwitchedTask({ type: 'resume_tracked_task', task });
                 timeoutMs = handler.timeoutMs;
                 if (handler.waitBeforeStart !== undefined) {
                     await handler.waitBeforeStart;
                 }
             } else if (timeoutMs === undefined) {
-                // Currently in onUserChangedTask('resume_untracked_task') we always return
+                // Currently in onUserSwitchedTask('resume_untracked_task') we always return
                 // `{ timeoutMs: 'no_timeout', waitBeforeStart: undefined }`, but we do handle
                 // this case generically, so that we are free to change this behaviour in the future.
-                const handler = this._onUserChangedTask({ type: 'resume_untracked_task' });
+                const handler = this._onUserSwitchedTask({ type: 'resume_untracked_task' });
                 timeoutMs = handler.timeoutMs;
                 if (handler.waitBeforeStart !== undefined) {
                     await handler.waitBeforeStart;
