@@ -113,10 +113,22 @@ export class Waiter {
     }
 }
 
+/**
+ * A universal timeout utility. Has the following use-cases:
+ * 1. `await timeout(1000)`
+ *     * sleep for 1 second
+ * 2. `await timeout(1000, promise)`
+ *     * await a promise, with a timeout of 1 second
+ *     * returns `{reason: 'timeout'}` if the promise is not resolved before the timeout
+ *     * otherwise returns `{reason: 'promise', value: (await promise)}`
+ * 3. `await timeout('no_timeout', promise)`
+ *     * await a promise, with no timeout
+ *     * returns `{reason: 'promise', value: (await promise)}`
+*/
 export function timeout<T>(ms: number | 'no_timeout', promise?: Promise<T>): Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }> {
     if (ms === 'no_timeout') {
         if (promise === undefined) {
-            return Promise.resolve({ reason: 'promise', value: undefined as T });
+            throw new Error("timeout('no_timeout') requires a promise");
         }
         return promise.then(value => ({ reason: 'promise', value }));
     }
