@@ -16,6 +16,25 @@ export class Worker {
     ) {}
 
     async run() {
+        this.clineController.onUserChangedTask((change) => {
+            switch (change.type) {
+                case 'start_untracked_task':
+                    return { timeoutMs: 'no_timeout' };
+                case 'resume_untracked_task':
+                    return { timeoutMs: 'no_timeout' };
+                case 'resume_tracked_task':
+                    const runResumeHook = async () => {
+                        const hookResult = await change.task.runHook('onresume');
+                        if (hookResult.failed) {
+                            change.task.status = 'error';
+                            this.scheduleUiRepaint();
+                            vscode.window.showErrorMessage('Failed to run onresume hook');
+                        }
+                    };
+                    return { timeoutMs: 300 * 1000, waitBeforeStart: runResumeHook() };
+            }
+        });
+
         while (true) {
             while (!this.active || this.nextTask() === undefined) {
                 await new Promise<void>(resolve => { this.wakeup = resolve; });
@@ -46,12 +65,12 @@ export class Worker {
                 }
                 
                 if (isResuming) {
-                    await this.clineController.resumeTask(task);
+                    await this.clineController.resumeTask(task, { timeoutMs: 300 * 1000 });
                     // when resuming, we don't need to handle messages, because the "thread"
                     // that handles messages has been started when the task was started and
                     // it will continue to handle messages.
                 } else {
-                    const channel = await this.clineController.startTask(task);
+                    const channel = await this.clineController.startTask(task, { timeoutMs: 10 * 1000 });
                     // we don't await handleTaskMessages(), message handling is
                     // a separate "thread", independent from the worker
                     this.handleTaskMessages(new WeakRef(task), channel);

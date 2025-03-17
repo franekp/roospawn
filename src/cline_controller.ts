@@ -7,9 +7,19 @@ import { Task } from './roospawn';
 export interface IClineController {
     waitUntilNotBusy(): Promise<void>;
     canResumeTask(task: Task): Promise<boolean>;
-    resumeTask(task: Task): Promise<void>;
-    startTask(task: Task): Promise<MessagesRx>;
+    resumeTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<void>;
+    startTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<MessagesRx>;
+    onUserChangedTask(handler: (change: UserTaskChange) => {
+        timeoutMs: 'no_timeout' | number,
+        waitBeforeStart?: Promise<void>
+    }): void;
 }
+
+export type UserTaskChange =
+    | { type: 'start_untracked_task' }
+    | { type: 'resume_untracked_task' }
+    | { type: 'resume_tracked_task', task: Task }
+    ;
 
 export type Message =
     | { type: 'say', say: ClineSay, text?: string, images?: string[] }

@@ -51,7 +51,7 @@ export interface ClineProvider {
     // Note: the "channel" parameter is not part of the original ClineProvider interface.
     // We need to pass the channel when we run a Roo-Spawn task. 
     initClineWithTask: (task?: string, images?: string[], params?: ControllingTrackerParams) => Promise<void>;
-    initClineWithHistoryItem: (historyItem: HistoryItem) => Promise<void>;
+    initClineWithHistoryItem: (historyItem: HistoryItem, timeoutMs?: 'no_timeout' | number) => Promise<void>;
 
     getTaskWithId(id: string): Promise<{ historyItem: HistoryItem }>;
 }
