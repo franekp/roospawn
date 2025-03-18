@@ -11,7 +11,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Get Cline API
     const ai_extension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
     if (!ai_extension) {
-        throw new Error('roospawn: roo-cline extension not found');
+        throw new Error('Roospawn: RooCode (rooveterinaryinc.roo-code) extension not found');
     }
 
     const tasks: Task[] = [];
@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (ai_extension.exports.resumeTask) {
         const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
         const ClineController = await import('./controller-3.8.6-dev/cline_controller').then(module => module.ClineController);
-        clineController = new ClineController(ai_api, tasks) as any;
+        clineController = new ClineController(ai_api, tasks, true);
         vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;

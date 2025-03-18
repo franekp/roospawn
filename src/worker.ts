@@ -70,7 +70,7 @@ export class Worker {
                     // that handles messages has been started when the task was started and
                     // it will continue to handle messages.
                 } else {
-                    const channel = await this.clineController.startTask(task, { timeoutMs: 10 * 1000 });
+                    const channel = await this.clineController.startTask(task, { timeoutMs: 20 * 1000 });
                     // we don't await handleTaskMessages(), message handling is
                     // a separate "thread", independent from the worker
                     this.handleTaskMessages(new WeakRef(task), channel);
