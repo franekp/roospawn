@@ -62,6 +62,14 @@ export interface ControllingTrackerParams {
 //  - Later, we might consider removing all these periodic checks when:
 //     - worker is paused
 //     - worker is waiting for tasks in the queue
+
+// Subtask notes to add above
+// - a subtask is treated as part of its root task
+// - and thus we always preempt (cancel) the whole task stack (instead of just the subtask)
+// - tasks started by RooSpawn are always the root tasks, although they can spawn subtasks, the task is completed when the root task complets
+// - for now we ignore messages from subtasks, in the future we should extend our data structures to support them
+// - cline controller becomes not-busy when the processed root task is completed
+
 export class ClineController implements IClineController {
     // TODO: add a map of "taskId" -> ControllingTrackerParams
     
