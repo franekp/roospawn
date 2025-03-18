@@ -2,11 +2,17 @@ import { EventEmitter } from "events"
 
 export interface RooCodeEvents {
 	message: [{ taskId: string; action: "created" | "updated"; message: ClineMessage }]
+	// Event triggered just after a task started (because of starting a new task, resuming the task or starting a subtask)
 	taskStarted: [taskId: string]
+	// Event triggered when a task pauses to allow a subtask to run
 	taskPaused: [taskId: string]
+	// Event triggered when a task unpauses after a subtask has finished
 	taskUnpaused: [taskId: string]
+	// Event triggered when a task "ask" is responded to by the user
 	taskAskResponded: [taskId: string]
+	// Event triggered when a task is aborted
 	taskAborted: [taskId: string]
+	// Event triggered when a task spawns a subtask
 	taskSpawned: [taskId: string, childTaskId: string]
 }
 
@@ -86,44 +92,44 @@ export interface RooCodeAPI extends EventEmitter<RooCodeEvents> {
 }
 
 export type ClineAsk =
-	| "followup"
-	| "command"
-	| "command_output"
-	| "completion_result"
-	| "tool"
-	| "api_req_failed"
-	| "resume_task"
-	| "resume_completed_task"
-	| "mistake_limit_reached"
-	| "browser_action_launch"
-	| "use_mcp_server"
-	| "finishTask"
+	| "followup"                   // LLM asks a question that user should respond to
+	| "command"                    // LLM asks for permisson to run terminal command
+	| "command_output"             // LLM asks for permission to read the terminal command output
+	| "completion_result"          // After LLM say "completion_result", we need to show "Start New Task" button and wait for the user to click it — the "completion_result" ask will wait for that click
+	| "tool"                       // LLM asks for permission to use a tool (e.g. read file or apply a diff)
+	| "api_req_failed"             // Roo-Code failed to make an API request and asks whether to retry or give up (start a new task)
+	| "resume_task"                // The user triggered task resume, it became visible in the sidebar, and now the user is asked to confirm the resume
+	| "resume_completed_task"      // Similar to "resume_task", but for tasks that are already in completed state (there is only "start new task" button and no "resume task" button)
+	| "mistake_limit_reached"      // It is a mistake when LLM in its answer did not used a tool or attempted completion. It is also a mistake when a tool is invoked without required arguments. Three mistakes will trigger this ask. User can give now more information to help LLM.
+	| "browser_action_launch"      // LLM asks whether it can open an URL in the browser
+	| "use_mcp_server"             // LLM asks whether it can use MCP server to make an MCP API request
+	| "finishTask"                 // This is probably a bug. "finishTask" is a tool that signals that the subtask is completed. User is asked to confirm the completion, and then the "control flow" returns to the parent task.
 
 export type ClineSay =
-	| "task"
-	| "error"
-	| "api_req_started"
-	| "api_req_finished"
-	| "api_req_retried"
-	| "api_req_retry_delayed"
-	| "api_req_deleted"
-	| "text"
-	| "reasoning"
-	| "completion_result"
-	| "user_feedback"
-	| "user_feedback_diff"
-	| "command_output"
-	| "tool"
-	| "shell_integration_warning"
-	| "browser_action"
-	| "browser_action_result"
-	| "command"
-	| "mcp_server_request_started"
-	| "mcp_server_response"
-	| "new_task_started"
-	| "new_task"
-	| "checkpoint_saved"
-	| "rooignore_error"
+	| "task"                       // Probably a bug. Cannot find any place where "task" is used in "say".
+	| "error"                      // Roo-Code informs LLM about some mistake (e.g. missing tool arguments)
+	| "api_req_started"            // Roo-Code starts making an API request and provides basic information about the environment
+	| "api_req_finished"           // Roo-Code finished performing an API request. Data from this "say" are moved to "api_req_started" "say" and the "api_req_started" "say" is deleted. However cannot find any place where it is said.
+	| "api_req_retried"            // Roo-Code failed to make an API request, asked the user whether to retry, and now signals the retry
+	| "api_req_retry_delayed"      // Like "api_req_retried", but we hit the rate limit and have to wait for some time before retrying
+	| "api_req_deleted"            // Roo-Code says: "aggregated api_req metrics from deleted messages"
+	| "text"                       // Generic text message said by the user, Roo-Code or LLM
+	| "reasoning"                  // As I understand, some LLMs can talk to themselves and verbose their thougths as "reasoning".
+	| "completion_result"          // Marks that the task is completed (green checkmark and some text)
+	| "user_feedback"              // The user response for e.g. "followup" ask
+	| "user_feedback_diff"         // LLM generated some file, but the user added some changes to it. This "say" informs about the changes done.
+	| "command_output"             // An output from a terminal command, so LLM knows the command output
+	| "tool"                       // This is probably a bug. Cannot find any place where "tool" is used in "say".
+	| "shell_integration_warning"  // Informs the user that the shell integration is unavailable
+	| "browser_action"             // LLM says what actions should be taken in the browser (scroll down, click, etc.)
+	| "browser_action_result"      // Roo-Code started launching the browser, this say triggers the loading spinner
+	| "command"                    // Probably a bug. Cannot find any place where "command" is used in "say".
+	| "mcp_server_request_started" // Roo-Code started making an MCP server request, this say triggers the loading spinner
+	| "mcp_server_response"        // The response from the MCP server
+	| "new_task_started"           // Probably a bug. Cannot find any usage of "new_task_started" in the code.
+	| "new_task"                   // Probably a bug. This is a tool, not a "say".
+	| "checkpoint_saved"           // Roo-Code saved a checkpoint
+	| "rooignore_error"            // Informs the LLM that it does not have access to a file, because it is listed in ".rooignore"
 
 export interface ClineMessage {
 	ts: number
