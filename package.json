@@ -55,7 +55,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "yarn compile-tests && yarn compile && yarn lint",
     "lint": "eslint src",
-    "test": "vscode-test",
+    "test": "node ./out/test/runTest.js",
     "download-pyodide": "node scripts/download-pyodide.js",
     "postinstall": "yarn download-pyodide"
   },
@@ -81,6 +81,7 @@
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.19.0",
     "ignore-loader": "^0.1.2",
+    "mocha": "^11.1.0",
     "tar": "^7.4.3",
     "ts-loader": "^9.5.2",
     "typescript": "^5.7.3",

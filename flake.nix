@@ -18,6 +18,15 @@
         devInputs = with pkgs; [];
 
         rpath = pkgs.lib.makeLibraryPath buildInputs;
+
+        vscodeTestFhs = pkgs.buildFHSEnv {
+          name = "vscode-test-env";
+          targetPkgs = pkgs: (with pkgs; [
+            yarn nodejs_23 glib nss nspr dbus atk gtk3 pango cairo
+            xorg.libX11 xorg.libXcomposite xorg.libXdamage xorg.libXext xorg.libXfixes xorg.libXrandr
+            libgbm expat xorg.libxcb libxkbcommon udev alsa-lib libGL
+          ]);
+        };
       in
       rec {
         devShells.default = pkgs.mkShell {
@@ -29,6 +38,8 @@
             LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${rpath}
           '';
         };
+
+        devShells.vscodeTest = vscodeTestFhs.env;
       }
     );
 }
