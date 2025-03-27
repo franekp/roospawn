@@ -2,6 +2,7 @@ import { EventEmitter } from "events"
 
 export interface RooCodeEvents {
 	message: [{ taskId: string; action: "created" | "updated"; message: ClineMessage }]
+	taskCreated: [taskId: string]
 	// Event triggered just after a task started (because of starting a new task, resuming the task or starting a subtask)
 	taskStarted: [taskId: string]
 	// Event triggered when a task pauses to allow a subtask to run
@@ -199,9 +200,12 @@ export type GlobalStateKey =
 	| "openRouterModelId"
 	| "openRouterModelInfo"
 	| "openRouterBaseUrl"
+	| "openRouterSpecificProvider"
 	| "openRouterUseMiddleOutTransform"
 	| "googleGeminiBaseUrl"
 	| "allowedCommands"
+	| "ttsEnabled"
+	| "ttsSpeed"
 	| "soundEnabled"
 	| "soundVolume"
 	| "diffEnabled"
@@ -213,6 +217,7 @@ export type GlobalStateKey =
 	| "fuzzyMatchThreshold"
 	| "writeDelayMs"
 	| "terminalOutputLineLimit"
+	| "terminalShellIntegrationTimeout"
 	| "mcpEnabled"
 	| "enableMcpServerCreation"
 	| "alwaysApproveResubmit"
@@ -245,6 +250,9 @@ export type GlobalStateKey =
 	| "telemetrySetting"
 	| "showRooIgnoredFiles"
 	| "remoteBrowserEnabled"
+	| "language"
+	| "maxReadFileLine"
+	| "fakeAi"
 
 export type ConfigurationKey = GlobalStateKey | SecretKey
 

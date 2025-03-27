@@ -3,11 +3,18 @@ import * as fs from 'fs';
 import Mocha from 'mocha';
 import { glob } from 'glob';
 
+import * as chai from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+
+chai.use(chaiAsPromised);
+
 export function run(): Promise<void> {
   // Create the mocha test
   const mocha = new Mocha({
-    ui: 'tdd',
-    color: true
+    ui: 'bdd',
+    color: true,
+    timeout: 100000,
+    slow: 10000,
   });
 
   const testsRoot = path.resolve(__dirname, '..');

@@ -1,5 +1,6 @@
 {
   "name": "roospawn",
+  "publisher": "roospawn",
   "displayName": "RooSpawn",
   "description": "",
   "version": "0.0.1",
@@ -60,6 +61,7 @@
     "postinstall": "yarn download-pyodide"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.37.0",
     "pyodide": "0.23.4",
     "raw-loader": "^4.0.2",
     "react": "^19.0",
@@ -68,6 +70,8 @@
   },
   "devDependencies": {
     "@svgr/webpack": "^8.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/chai-as-promised": "^7.1.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/react": "^19.0",
@@ -79,6 +83,8 @@
     "@typescript-eslint/parser": "^8.22.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "chai": "^4.3.0",
+    "chai-as-promised": "^7.1.0",
     "eslint": "^9.19.0",
     "ignore-loader": "^0.1.2",
     "mocha": "^11.1.0",

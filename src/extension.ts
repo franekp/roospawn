@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
-import { RooSpawn, Task } from './roospawn';
 import { IClineController } from './cline_controller';
 import { ClineController as ClineController384 } from './controller-3.8.4/cline_controller';
 import { ClineController as ClineController386 } from './controller-3.8.6-dev/cline_controller';
+import { RooSpawn, Task } from './roospawn';
 
-export async function activate(context: vscode.ExtensionContext) {
+export { RooSpawn, Task };
+
+export async function activate(context: vscode.ExtensionContext): Promise<RooSpawn> {
     const outputChannel = vscode.window.createOutputChannel('RooSpawn');
     outputChannel.appendLine('RooSpawn extension is now running!');
 
@@ -48,6 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(disposable);
+
+    return rooSpawn;
 }
 
 export function deactivate() {}

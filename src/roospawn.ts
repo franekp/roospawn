@@ -212,7 +212,7 @@ export class RooSpawn {
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         readonly outputChannel: vscode.OutputChannel,
-        private readonly clineController: IClineController,
+        readonly clineController: IClineController,
         public readonly tasks: Task[]
     ) {
         this.worker = new Worker(

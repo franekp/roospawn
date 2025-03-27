@@ -110,6 +110,10 @@ export class Worker {
                             }
                             break;
                         case 'aborted':
+                            if (t.status !== 'running') {
+                                break;
+                            }
+                            // Then run onpause hook below
                         case 'asking':
                             const hookResult2 = await t.runHook('onpause');
                             if (hookResult2.failed) {
