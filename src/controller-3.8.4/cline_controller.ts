@@ -18,32 +18,20 @@
 import { Channel, Waiters, Waiter, timeout } from '../async_utils';
 import { Cline, ClineProvider, HistoryItem } from './cline';
 import { Task } from '../roospawn';
-import { MessagesTx, MessagesRx, Message, IClineController, UserTaskSwitch } from '../cline_controller';
+import { MessagesTx, MessagesRx, Message, IClineController, ControllerEvents } from '../cline_controller';
+import EventEmitter from 'events';
 
 export interface ControllingTrackerParams {
     channel: MessagesTx;
-    timeoutMs: 'no_timeout' | number;
     clineId?: string;
 }
 
-export class ClineController implements IClineController {
-    /// We set this flag to `true` when we know that some task is running within controlled `ClineProvider`.
-    private busy: boolean = false;
-    private waiters: Waiters = new Waiters();
-
-    private _onUserSwitchedTask: ((taskSwitch: UserTaskSwitch) => {
-        timeoutMs: 'no_timeout' | number,
-        waitBeforeStart?: Promise<void>
-    }) = () => ({ timeoutMs: 'no_timeout' });
-
-    onUserSwitchedTask(handler: (taskSwitch: UserTaskSwitch) => {
-        timeoutMs: 'no_timeout' | number,
-        waitBeforeStart?: Promise<void>
-    }): void {
-        this._onUserSwitchedTask = handler;
-    }
+export class ClineController extends EventEmitter<ControllerEvents> implements IClineController {
+    private _isAsking = false;
 
     constructor(private provider: ClineProvider, private tasks: Task[]) {
+        super();
+
         const controller = this;
 
         // If the provider already has a `Cline` instance, attach state tracking to the instance.
@@ -51,7 +39,7 @@ export class ClineController implements IClineController {
         // created before starting the first Roo-Spawn task.
         const cline = provider.getCurrentCline();
         if (cline !== undefined) {
-            this.attachObservingTrackerToCline(cline, 'no_timeout');
+            this.attachTrackerToCline(cline);
         }
 
         // Override the `initClineWithTask` and `initClineWithHistoryItem` methods to attach state tracking
@@ -66,80 +54,29 @@ export class ClineController implements IClineController {
         const oldInitClineWithHistoryItem = provider.initClineWithHistoryItem.bind(provider);
 
         provider.initClineWithTask = async (task?: string, images?: string[], params?: ControllingTrackerParams) => {
-            this.busy = true;
-
-            let timeoutMs: 'no_timeout' | number = 'no_timeout';
-            if (params === undefined) {
-                // Currently in onUserSwitchedTask('start_untracked_task') we always return
-                // `{ timeoutMs: 'no_timeout', waitBeforeStart: undefined }`, but we do handle
-                // this case generically, so that we are free to change this behaviour in the future.
-                const handler = this._onUserSwitchedTask({ type: 'start_untracked_task' });
-                timeoutMs = handler.timeoutMs;
-                if (handler.waitBeforeStart !== undefined) {
-                    await handler.waitBeforeStart;
-                }
-            }
-
             await oldInitClineWithTask(task, images);
             const cline = provider.getCurrentCline()!;
-
-            if (params !== undefined) {
-                controller.attachControllingTrackerToCline(cline, params);
-            } else {
-                controller.attachObservingTrackerToCline(cline, timeoutMs);
-            }
+            this.emit('rootTaskStarted', cline.taskId);
+            controller.attachTrackerToCline(cline, params);
         };
 
-        provider.initClineWithHistoryItem = async (historyItem: HistoryItem, timeoutMs?: 'no_timeout' | number) => {
-            this.busy = true;
+        provider.initClineWithHistoryItem = async (historyItem: HistoryItem) => {
             const clineId = historyItem.id;
+            this.emit('rootTaskStarted', clineId);
 
             const task = this.tasks.find(task => task.clineId === clineId);
-
-            // If timeoutMs is provided, it means that the resume is done by Roospawn, not by the user.
-            if (timeoutMs === undefined && task?.tx !== undefined) {
-                const handler = this._onUserSwitchedTask({ type: 'resume_tracked_task', task });
-                timeoutMs = handler.timeoutMs;
-                if (handler.waitBeforeStart !== undefined) {
-                    await handler.waitBeforeStart;
-                }
-            } else if (timeoutMs === undefined) {
-                // Currently in onUserSwitchedTask('resume_untracked_task') we always return
-                // `{ timeoutMs: 'no_timeout', waitBeforeStart: undefined }`, but we do handle
-                // this case generically, so that we are free to change this behaviour in the future.
-                const handler = this._onUserSwitchedTask({ type: 'resume_untracked_task' });
-                timeoutMs = handler.timeoutMs;
-                if (handler.waitBeforeStart !== undefined) {
-                    await handler.waitBeforeStart;
-                }
-            }
 
             await oldInitClineWithHistoryItem(historyItem);
             const cline = provider.getCurrentCline()!;
 
             if (task?.tx !== undefined) {
-                let params: ControllingTrackerParams = {
-                    channel: task.tx, timeoutMs,
-                };
-                controller.attachControllingTrackerToCline(cline, params);
+                let params: ControllingTrackerParams = { channel: task.tx };
+                controller.attachTrackerToCline(cline, params);
                 task.clineId = params.clineId;
             } else {
-                controller.attachObservingTrackerToCline(cline, timeoutMs);
+                controller.attachTrackerToCline(cline);
             }
         };
-    }
-
-    async waitUntilNotBusy(): Promise<void> {
-        // We can run a Roo-Spawn task only if there is no other task running in the `ClineProvider`.
-        // The waiter's condition is best effort to check whether some task is running in the provider.
-        let waiter = new Waiter(() => {
-            const cline = this.provider.getCurrentCline();
-            return !this.busy
-                && !cline?.isStreaming
-                && !(cline?.clineMessages[-1]?.type === 'ask' && !cline?.abort);
-        });
-        this.waiters.add(waiter);
-        await waiter.wait();
     }
 
     async canResumeTask(task: Task): Promise<boolean> {
@@ -151,7 +88,7 @@ export class ClineController implements IClineController {
         return historyItem !== undefined;
     }
 
-    async resumeTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<void> {
+    async resumeTask(task: Task): Promise<void> {
         if (task.clineId === undefined) {
             throw new Error('Task has no Cline ID');
         }
@@ -161,22 +98,13 @@ export class ClineController implements IClineController {
             throw new Error('Task has no history item');
         }
 
-        if (task.status !== 'running') {
-            // We rely on the fact that when Roospawn resumes a task, it marks it as "running" before,
-            // so we can distinguish between resuming by Roospawn and resuming by the user.
-            throw new Error('For technical reasons, task must be marked as "running" before resuming');
-        }
-
-        await this.provider.initClineWithHistoryItem(historyItem, options.timeoutMs);
+        await this.provider.initClineWithHistoryItem(historyItem);
     }
 
-    async startTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<MessagesRx> {
+    async startTask(task: Task): Promise<MessagesRx> {
         const { tx, rx } = Channel.create<Message>();
 
-        const params: ControllingTrackerParams = {
-            channel: tx,
-            timeoutMs: options.timeoutMs,
-        };
+        const params: ControllingTrackerParams = { channel: tx };
 
         await this.provider.initClineWithTask(task.prompt, undefined, params);
         task.clineId = params.clineId;
@@ -185,127 +113,99 @@ export class ClineController implements IClineController {
         return rx;
     }
 
-    attachControllingTrackerToCline(cline: Cline, params: ControllingTrackerParams) {
-        console.info("Attaching controlling tracker to Cline: ", cline);
-        // We can set busy to false only once.
-        let canSetBusy = true;
-        const setBusy = (busy: boolean) => {
-            if (canSetBusy) {
-                canSetBusy = busy;
-                this.busy = busy;
-                if (busy === false) {
-                    this.waiters.wake();
-                }
-            }
-        };
-
-        params.clineId = cline.taskId;
-
-        const oldSay: Cline['say'] = cline.say.bind(cline);
-        const oldAsk: Cline['ask'] = cline.ask.bind(cline);
-        const oldAbortTask: Cline['abortTask'] = cline.abortTask.bind(cline);
-
-        const { channel, timeoutMs } = params;
-
-        cline.say = async (type, text, images, partial, checkpoint) => {
-            await oldSay(type, text, images, partial, checkpoint);
-
-            if (partial === false || partial === undefined) {
-                const message: Message = { type: 'say', say: type, text, images };
-                channel.send(message);
-
-                if (type === 'completion_result') {
-                    cline.say = oldSay;
-                    cline.ask = oldAsk;
-                    cline.abortTask = oldAbortTask;
-
-                    channel.send({ type: 'status', status: 'completed' });
-                    setBusy(false);
-                }
-            }
-        };
-
-        cline.ask = async (type, text, partial) => {
-            if (partial === false || partial === undefined) {
-                channel.send({ type: 'ask', ask: type, text });
-            }
-
-            const askPromise = oldAsk(type, text, partial);
-            const result = await timeout(timeoutMs, askPromise);
-            if (result.reason === 'timeout') {
-                cline.say = oldSay;
-                cline.ask = oldAsk;
-                cline.abortTask = oldAbortTask;
-
-                channel.send({ type: 'status', status: 'asking' });
-                // Allow other tasks to run.
-                // Running another task will call `ClineProvider.initClineWithTask`,
-                // which internally aborts the current task.
-                setBusy(false);
-            }
-
-            return await askPromise;
-        };
-
-        cline.abortTask = async (isAbandoned: boolean = false) => {
-            cline.say = oldSay;
-            cline.ask = oldAsk;
-            cline.abortTask = oldAbortTask;
-
-            await oldAbortTask(isAbandoned);
-
-            channel.send({ type: 'status', status: 'aborted' });
-            setBusy(false);
-        };
+    async abortTaskStack(): Promise<void> {
+        const cline = this.provider.getCurrentCline();
+        if (cline === undefined) {
+            return;
+        }
+        await cline.abortTask();
+        await this.provider.postStateToWebview();
     }
 
-    // Currently we always pass 'no_timeout', but for completeness we implement the timeout,
-    // so that we are free to change this behaviour in the future.
-    attachObservingTrackerToCline(cline: Cline, timeoutMs: 'no_timeout' | number) {
-        // We can set busy to false only once.
-        let canSetBusy = true;
-        const setBusy = (busy: boolean) => {
-            if (canSetBusy) {
-                canSetBusy = busy;
-                this.busy = busy;
-                if (busy === false) {
-                    this.waiters.wake();
-                }
+    isBusy(): boolean {
+        if (this._isAsking) {
+            return true;
+        }
+
+        const cline = this.provider.getCurrentCline();
+        if (cline === undefined) {
+            return false;
+        }
+        if (cline.isStreaming) {
+            return true;
+        }
+        if (cline.clineMessages[cline.clineMessages.length - 1]?.type === 'ask' && !cline.abort) {
+            return true;
+        }
+
+        return false;
+    }
+
+    isAsking(): boolean {
+        return this._isAsking;
+    }
+
+    attachTrackerToCline(cline: Cline, params?: ControllingTrackerParams) {
+        let isRunning = true;
+        const taskEnded = () => {
+            if (isRunning) {
+                // Lets assume that in Roo-Code 3.8.4 we do not create subtasks
+                isRunning = false;
+                this.emit('rootTaskEnded', cline.taskId);
             }
         };
+        const taskRunning = () => {
+            if (!isRunning) {
+                // Lets assume that in Roo-Code 3.8.4 we do not create subtasks
+                isRunning = true;
+                this.emit('rootTaskStarted', cline.taskId);
+            }
+        };
+
+        if (params !== undefined) {
+            params.clineId = cline.taskId;
+        }
+
+        const tx = params?.channel;
 
         const oldSay: Cline['say'] = cline.say.bind(cline);
         const oldAsk: Cline['ask'] = cline.ask.bind(cline);
         const oldAbortTask: Cline['abortTask'] = cline.abortTask.bind(cline);
 
         cline.say = async (type, text, images, partial, checkpoint) => {
+            this.emit('keepalive');
+            if (type === 'user_feedback') {
+                taskRunning();
+            }
+
             await oldSay(type, text, images, partial, checkpoint);
 
-            if (partial === false || partial === undefined) {
+            if (!partial) {
+                const message: Message = { type: 'say', say: type, text, images };
+                tx?.send(message);
+    
                 if (type === 'completion_result') {
-                    cline.say = oldSay;
-                    cline.ask = oldAsk;
-                    cline.abortTask = oldAbortTask;
-                    setBusy(false);
+                    tx?.send({ type: 'status', status: 'completed' });
+                    taskEnded();
                 }
             }
         };
 
         cline.ask = async (type, text, partial) => {
-            const askPromise = oldAsk(type, text, partial);
-            const result = await timeout(timeoutMs, askPromise);
-            if (result.reason === 'timeout') {
-                cline.say = oldSay;
-                cline.ask = oldAsk;
-                cline.abortTask = oldAbortTask;
-
-                // Allow other tasks to run.
-                // Running another task will call `ClineProvider.initClineWithTask`,
-                // which internally aborts the current task.
-                setBusy(false);
+            this.emit('keepalive');
+            if (!partial) {
+                tx?.send({ type: 'ask', ask: type, text });
             }
 
-            return await askPromise;
+            this._isAsking = true;
+            const result = await oldAsk(type, text, partial);
+            this._isAsking = false;
+
+            if (result.response === 'messageResponse') {
+                taskRunning();
+            }
+            this.emit('keepalive');
+            return result;
         };
 
         cline.abortTask = async (isAbandoned: boolean = false) => {
@@ -315,7 +215,8 @@ export class ClineController implements IClineController {
 
             await oldAbortTask(isAbandoned);
 
-            setBusy(false);
+            tx?.send({ type: 'status', status: 'aborted' });
+            taskEnded();
         };
     }
 }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Waiters, Waiter, Channel } from '../async_utils';
 import { ClineAsk, ClineMessage, ClineSay, RooCodeAPI } from './roo-code';
 import { Task } from '../roospawn';
-import { IClineController, Message, MessagesTx, MessagesRx, UserTaskSwitch } from '../cline_controller';
+import { IClineController, Message, MessagesTx, MessagesRx } from '../cline_controller';
 import EventEmitter from 'events';
 
 
@@ -71,7 +71,7 @@ export interface ControllingTrackerParams {
 // - for now we ignore messages from subtasks, in the future we should extend our data structures to support them
 // - cline controller becomes not-busy when the processed root task is completed
 
-export class ClineController implements IClineController {
+export class ClineController { //implements IClineController {
     private rooCodeTasks: Map<string, RooCodeTask> = new Map();
     private rootTasks: Map<string, string> = new Map();
     
@@ -84,18 +84,6 @@ export class ClineController implements IClineController {
     // and used inside `handleTaskStarted` to create a RooCodeTask
     // for newely started task.
     private createRooCodeTask?: (taskId: string) => RooCodeTask;
-
-    private _onUserSwitchedTask: ((taskSwitch: UserTaskSwitch) => {
-        timeoutMs: 'no_timeout' | number,
-        waitBeforeStart?: Promise<void>
-    }) = () => ({ timeoutMs: 'no_timeout' });
-
-    onUserSwitchedTask(handler: (taskSwitch: UserTaskSwitch) => {
-        timeoutMs: 'no_timeout' | number,
-        waitBeforeStart?: Promise<void>
-    }): void {
-        this._onUserSwitchedTask = handler;
-    }
 
     constructor(private api: RooCodeAPI, private tasks: Task[], private enableLogging: boolean = false) {
         // attach events to the API

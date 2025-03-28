@@ -54,6 +54,7 @@ export interface ClineProvider {
     initClineWithHistoryItem: (historyItem: HistoryItem, timeoutMs?: 'no_timeout' | number) => Promise<void>;
 
     getTaskWithId(id: string): Promise<{ historyItem: HistoryItem }>;
+    postStateToWebview(): Promise<void>;
 }
 
 // `Cline` at <https://github.com/RooVetGit/Roo-Code/blob/main/src/core/Cline.ts>

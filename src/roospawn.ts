@@ -216,6 +216,7 @@ export class RooSpawn {
         public readonly tasks: Task[]
     ) {
         this.worker = new Worker(
+            this.tasks,
             () => this.getFirstQueuedTask(),
             () => this.schedule_ui_repaint(),
             this.clineController,

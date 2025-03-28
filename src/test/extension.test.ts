@@ -32,8 +32,10 @@ describe('Integration with Roo-Code', async () => {
 		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
 		tx.ret();
 
-		await controller.waitUntilNotBusy();
-		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'), { timeoutMs: 'no_timeout' });
+		while (controller.isBusy()) {
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
+		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'));
 
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'test' });
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'api_req_started' });
@@ -58,8 +60,10 @@ describe('Integration with Roo-Code', async () => {
 		const tx2 = fakeAi.handlersManager.add();
 		const tx3 = fakeAi.handlersManager.add();
 
-		await controller.waitUntilNotBusy();
-		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'), { timeoutMs: 'no_timeout' });
+		while (controller.isBusy()) {
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
+		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'));
 
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'test' });
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'api_req_started' });

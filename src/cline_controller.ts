@@ -1,25 +1,25 @@
 // This file contains version-independent type of message from Cline to user.
 // Controllers of different versions must convert they message types to the types defined here.
 
+import { EventEmitter } from 'events';
 import { Channel } from './async_utils';
 import { Task } from './roospawn';
 
-export interface IClineController {
-    waitUntilNotBusy(): Promise<void>;
+export interface IClineController extends EventEmitter<ControllerEvents> {
     canResumeTask(task: Task): Promise<boolean>;
-    resumeTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<void>;
-    startTask(task: Task, options: {timeoutMs: 'no_timeout' | number}): Promise<MessagesRx>;
-    onUserSwitchedTask(handler: (taskSwitch: UserTaskSwitch) => {
-        timeoutMs: 'no_timeout' | number,
-        waitBeforeStart?: Promise<void>
-    }): void;
+    resumeTask(task: Task): Promise<void>;
+    startTask(task: Task): Promise<MessagesRx>;
+    abortTaskStack(): Promise<void>;
+    // This needs to be only a good approximation, it is only used to detect the initial state when we attach to the controller.
+    isBusy(): boolean;
+    isAsking(): boolean;
 }
 
-export type UserTaskSwitch =
-    | { type: 'start_untracked_task' }
-    | { type: 'resume_untracked_task' }
-    | { type: 'resume_tracked_task', task: Task }
-    ;
+export type ControllerEvents = {
+    rootTaskStarted: [clineTaskId: string];
+    rootTaskEnded: [clineTaskId: string];
+    keepalive: [];
+}
 
 export type Message =
     | { type: 'say', say: ClineSay, text?: string, images?: string[] }
@@ -31,7 +31,7 @@ export type Message =
 export type MessagesTx = Channel<Message>;
 export type MessagesRx = AsyncGenerator<Message, void, void>;
 
-export type Status = 'completed' | 'aborted' | 'asking' | 'error';
+export type Status = 'completed' | 'aborted' | 'error';
 
 export type ClineAsk =
     | "followup"
