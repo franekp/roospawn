@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Waiters, Waiter, Channel } from '../async_utils';
 import { ClineAsk, ClineMessage, ClineSay, RooCodeAPI } from './roo-code';
 import { Task } from '../roospawn';
-import { IClineController, Message, MessagesTx, MessagesRx } from '../cline_controller';
+import { IClineController, Message, MessagesTx, MessagesRx, ControllerEvents } from '../cline_controller';
 import EventEmitter from 'events';
 
 
@@ -71,14 +71,12 @@ export interface ControllingTrackerParams {
 // - for now we ignore messages from subtasks, in the future we should extend our data structures to support them
 // - cline controller becomes not-busy when the processed root task is completed
 
-export class ClineController { //implements IClineController {
+export class ClineController extends EventEmitter<ControllerEvents> implements IClineController {
     private rooCodeTasks: Map<string, RooCodeTask> = new Map();
-    private rootTasks: Map<string, string> = new Map();
     
-    /// We set this flag to `true` when we know that some task is running within controlled `ClineProvider`.
-    private busy: BusyManager = new BusyManager();
-    private busyToken?: BusyToken;  // TODO: probably stored inside RooCodeTask
     private log: vscode.OutputChannel | undefined;
+    private _isBusy: boolean;
+    private _isAsking: boolean;
 
     // This is set before `startNewTask` or `resumeTask` is called,
     // and used inside `handleTaskStarted` to create a RooCodeTask
@@ -86,24 +84,21 @@ export class ClineController { //implements IClineController {
     private createRooCodeTask?: (taskId: string) => RooCodeTask;
 
     constructor(private api: RooCodeAPI, private tasks: Task[], private enableLogging: boolean = false) {
+        super();
+
         // attach events to the API
         this.api.on('message', ({ taskId, message }) => this.handleMessage(taskId, message));
         this.api.on('taskCreated', (taskId) => this.handleTaskCreated(taskId));
-        this.api.on('taskStarted', (taskId) => this.handleTaskStarted(taskId));
         this.api.on('taskSpawned', (taskId, childTaskId) => this.handleTaskSpawned(taskId, childTaskId));
         this.api.on('taskAskResponded', (taskId) => this.handleTaskAskResponded(taskId));
         this.api.on('taskAborted', (taskId) => this.handleTaskAborted(taskId));
-        this.busy.setTimeoutCallback(this.handleTimeout.bind(this));
     
         if (enableLogging) {
             this.setUpLogger();
         }
 
-        if (isRooCodeRunningTask(this.api)) {
-            this.busyToken = this.busy.setBusy();
-        }
-        this.busy.timeoutMs = 10000;
-        this.rooCodeTasks = UserTask.fromRooCodeApi(this.api);
+        this._isBusy = isRooCodeRunningTask(this.api);
+        this.rooCodeTasks = userTasksFromApi(this.api);
     }
 
     setUpLogger() {
@@ -148,18 +143,8 @@ export class ClineController { //implements IClineController {
         this.api.on('taskAborted', (taskId) => {
             log.appendLine(`[${taskId}] taskAborted`);
         });
-
-        this.busy.on('state', (state) => {
-            log.appendLine(`state = ${state}`);
-        });
-        this.busy.on('timeout', () => {
-            log.appendLine(`timeout`);
-        });
     }
 
-    waitUntilNotBusy(): Promise<void> {
-        return this.busy.waitUntilFree();
-    }
     async canResumeTask(task: Task): Promise<boolean> {
         if (task.clineId === undefined) {
             return false;
@@ -168,32 +153,54 @@ export class ClineController { //implements IClineController {
         return await this.api.isTaskInHistory(task.clineId);
     }
     async resumeTask(task: Task): Promise<void> {
-        if (this.busy.isBusy) {
+        if (this._isBusy) {
             throw new Error('Cannot resume task while Roo Code is busy');
         }
 
         const clineId = task.clineId!;
         const tx = task.tx!;
 
-        this.rooCodeTasks.set(clineId, new RooSpawnTask(clineId, 300000, tx));
+        this.rooCodeTasks.set(clineId, { type: 'roospawn', rootTaskId: clineId, tx });
+        this.createRooCodeTask = (taskId: string) => ({ type: 'roospawn', rootTaskId: taskId, tx });
         await this.api.resumeTask(clineId);
     }
     async startTask(task: Task): Promise<MessagesRx> {
-        if (this.busy.isBusy) {
+        if (this._isBusy) {
             throw new Error('Cannot start task while Roo Code is busy');
         }
 
         const { tx, rx } = Channel.create<Message>();
-        this.createRooCodeTask = (taskId: string) => new RooSpawnTask(taskId, 20000, tx);
+        this.createRooCodeTask = (taskId: string) => ({ type: 'roospawn', rootTaskId: taskId, tx });
         await this.api.startNewTask(task.prompt);
         return rx;
     }
 
-    handleMessage(taskId: string, message: ClineMessage) {
-        this.busy.keepalive();
+    async abortTaskStack() {
+        while (this.api.getCurrentTaskStack().length > 0) {
+            const taskId = this.api.getCurrentTaskStack()[this.api.getCurrentTaskStack().length - 1];
+            this.log?.appendLine(`Aborting task ${taskId}`);
+            this.api.clearCurrentTask();
+            this.log?.appendLine(`Task ${taskId} aborted`);
+        }
+    }
+
+    isBusy() {
+        return this._isBusy;
+    }
+
+    isAsking() {
+        return this._isAsking;
+    }
+
+    private handleMessage(taskId: string, message: ClineMessage) {
+        this.emit('keepalive');
 
         if (message.partial) {
             return;
+        }
+
+        if (message.type === 'ask') {
+            this._isAsking = true;
         }
 
         const rooCodeTask = this.rooCodeTasks.get(taskId);
@@ -219,44 +226,36 @@ export class ClineController { //implements IClineController {
             if (finishesRootTask) {
                 this.log?.appendLine("Finished root task!");
                 postMessage({ type: 'status', status: 'completed' });
-                this.busy.setFree(this.busyToken!);
+                this.emitRootTaskEnded(taskId);
             }
         }
     }
 
-    handleTaskCreated(taskId: string) {
+    private handleTaskCreated(taskId: string) {
         if (!this.rooCodeTasks.has(taskId)) {
-            const createTask = this.createRooCodeTask || this.startUserTask.bind(this);
+            const createTask = this.createRooCodeTask ?? createUserTask;
             this.createRooCodeTask = undefined;
 
             const task = createTask(taskId);
             this.rooCodeTasks.set(taskId, task);
-            this.busyToken = this.busy.setBusy();
+            this.emitRootTaskStarted(taskId);
             
         } // else: this task is a subtask
     }
 
-    handleTaskStarted(taskId: string) {
-        const task = this.rooCodeTasks.get(taskId)!;
-        if (task.type === 'roospawn') {
-            this.busy.timeoutMs = task.timeoutMs;
-        } else {
-            this.busy.timeoutMs = 'no_timeout';
-        }
-    }
-
-    handleTaskSpawned(taskId: string, childTaskId: string) {
+    private handleTaskSpawned(taskId: string, childTaskId: string) {
         const rooCodeTask = this.rooCodeTasks.get(taskId);
         if (rooCodeTask !== undefined) {
             this.rooCodeTasks.set(childTaskId, rooCodeTask);
         }
     }
 
-    handleTaskAskResponded(taskId: string) {
-        this.busy.keepalive();
+    private handleTaskAskResponded(taskId: string) {
+        this._isAsking = false;
+        this.emit('keepalive');
     }
 
-    handleTaskAborted(taskId: string) {
+    private handleTaskAborted(taskId: string) {
         const rooCodeTask = this.rooCodeTasks.get(taskId);
         if (rooCodeTask === undefined) {
             throw new Error("Aborting unknown task");
@@ -269,64 +268,45 @@ export class ClineController { //implements IClineController {
                 rooCodeTask.tx.send({ type: 'status', status: 'aborted' });
             }
 
-            this.busy.setFree(this.busyToken!);
+            this.emitRootTaskEnded(taskId);
         }
     }
 
-    private async handleTimeout(evt: TimeoutEvent) {
-        await this.abortTaskTree();
-    }
-
-    private async abortTaskTree() {
-        while (this.api.getCurrentTaskStack().length > 0) {
-            const taskId = this.api.getCurrentTaskStack()[this.api.getCurrentTaskStack().length - 1];
-            this.log?.appendLine(`Aborting task ${taskId}`);
-            this.api.clearCurrentTask();
-            this.log?.appendLine(`Task ${taskId} aborted`);
+    private emitRootTaskStarted(taskId: string) {
+        if (!this.isBusy) {
+            this._isBusy = true;
+            this.emit('rootTaskStarted', taskId);
         }
     }
 
-    private startUserTask(taskId: string): RooCodeTask {
-        const task = new UserTask(taskId);
-        this.busy.timeoutMs = 10000;
-        return task;
+    private emitRootTaskEnded(taskId: string) {
+        if (this.isBusy) {
+            this._isBusy = false;
+            this.emit('rootTaskEnded', taskId);
+        }
     }
 }
 
-type RooCodeTask = RooSpawnTask | UserTask;
+type RooCodeTask =
+    | { type: 'roospawn', rootTaskId: string, tx: MessagesTx }
+    | { type: 'user', rootTaskId: string }
+    ;
 
-class RooSpawnTask {
-    readonly type: 'roospawn' = 'roospawn';
-    readonly tx: MessagesTx;
-    readonly rootTaskId: string;
-    readonly timeoutMs: number | 'no_timeout';
 
-    constructor(rootTaskId: string, timeoutMs: number | 'no_timeout', tx: MessagesTx) {
-        this.rootTaskId = rootTaskId;
-        this.timeoutMs = timeoutMs;
-        this.tx = tx;
+function userTasksFromApi(rooCode: RooCodeAPI): Map<string, RooCodeTask> {
+    const tasksStack = rooCode.getCurrentTaskStack();
+
+    if (tasksStack.length === 0) {
+        return new Map();
     }
+
+    const rootTaskId = tasksStack[0];
+    const userTask: RooCodeTask = createUserTask(rootTaskId);
+    return new Map(tasksStack.map(taskId => [taskId, userTask]));
 }
 
-class UserTask {
-    readonly type: 'user' = 'user';
-    readonly rootTaskId: string;
-
-    constructor(rootTaskId: string) {
-        this.rootTaskId = rootTaskId;
-    }
-
-    static fromRooCodeApi(rooCode: RooCodeAPI): Map<string, UserTask> {
-        const tasksStack = rooCode.getCurrentTaskStack();
-
-        if (tasksStack.length === 0) {
-            return new Map();
-        }
-
-        const rootTaskId = tasksStack[0];
-        const userTask = new UserTask(rootTaskId);
-        return new Map(tasksStack.map(taskId => [taskId, userTask]));
-    }
+function createUserTask(taskId: string): RooCodeTask {
+    return { type: 'user', rootTaskId: taskId };
 }
 
 
@@ -347,110 +327,5 @@ function clineMessageToMessage(message: ClineMessage): Message {
             return { type: 'say', say: message.say!, text: message.text, images: message.images };
         case 'ask':
             return { type: 'ask', ask: message.ask!, text: message.text };
-    }
-}
-
-// Tracks whether Roo Code is busy, handles timeouts, preemption and waiting for free state
-class BusyManager extends EventEmitter<BusyManagerEvents> {
-    private _timeoutMs: number | 'no_timeout' = 'no_timeout';
-
-    private waiters: Waiters = new Waiters();
-    private busyToken?: BusyToken;
-
-    private timeoutCallback?: (evt: TimeoutEvent) => Promise<void>;
-    private timeout?: NodeJS.Timeout;
-
-    constructor() {
-        super();
-    }
-
-    async waitUntilFree(): Promise<void> {
-        let waiter = new Waiter(() => !this.isBusy);
-        this.waiters.add(waiter);
-        await waiter.wait();
-    }
-    
-    get timeoutMs(): number | 'no_timeout' {
-        return this._timeoutMs;
-    }
-
-    set timeoutMs(milliseconds: number | 'no_timeout') {
-        this._timeoutMs = milliseconds;
-        this.keepalive();
-    }
-
-    keepalive() {
-        if (this.timeout !== undefined) {
-            clearTimeout(this.timeout);
-            this.timeout = undefined;
-        }
-
-        if (this.isBusy && this._timeoutMs !== 'no_timeout') {
-            this.timeout = setTimeout(() => {
-                this.onTimeout();
-            }, this._timeoutMs);
-        }
-    }
-    
-    get isBusy(): boolean {
-        return this.busyToken !== undefined;
-    }
-
-    setBusy(): BusyToken {
-        this.busyToken = new BusyToken();
-        this.keepalive();
-        this.emit('state', 'busy');
-        return this.busyToken;
-    }
-
-    setFree(token: BusyToken) {
-        if (this.busyToken === token) {
-            if (this.timeout !== undefined) {
-                clearTimeout(this.timeout);
-                this.timeout = undefined;
-            }
-            this.busyToken = undefined;
-            this.emit('state', 'free');
-            this.waiters.wake();
-        }
-    }
-
-    setTimeoutCallback(callback: (evt: TimeoutEvent) => Promise<void>) {
-        this.timeoutCallback = callback;
-    }
-
-    private async onTimeout() {
-        if (this.busyToken === undefined) {
-            return;
-        }
-        const busyToken = this.busyToken;
-        this.emit('timeout');
-
-        let evt = new TimeoutEvent();
-        await this.timeoutCallback?.(evt);
-        if (evt.isPreventingPreemption()) {
-            this.keepalive();
-        } else {
-            this.setFree(busyToken);
-        }
-    }
-}
-
-class BusyToken {}
-
-type BusyManagerEvents = {
-    state: ['busy'|'free'];
-    timeout: [];
-}
-
-class TimeoutEvent {
-    private _preventPreemption: boolean = false;
-
-    preventPreemption() {
-        this._preventPreemption = true;
-    }
-
-    isPreventingPreemption(): boolean {
-        return this._preventPreemption;
     }
 }

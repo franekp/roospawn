@@ -22,10 +22,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
     let clineController: IClineController;
 
     if (ai_extension.exports.resumeTask) {
-        // const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
-        // const ClineController = ClineController386;
-        // clineController = new ClineController(ai_api, tasks, true);
-        // vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
+        const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
+        const ClineController = ClineController386;
+        clineController = new ClineController(ai_api, tasks, true);
+        vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
         const ClineController = ClineController384;
