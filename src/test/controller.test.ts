@@ -4,8 +4,9 @@ import * as vscode from 'vscode';
 import * as RooSpawnExtension from '../extension';
 import { FakeAi } from './suite/fake_ai';
 import { IClineController, Message } from '../cline_controller';
+import { assertMessage, initializeRooSpawn, tf } from './suite/utils';
+import { Cursor, EventsCollector } from './suite/events_collector';
 import { assert } from 'chai';
-import { initializeRooSpawn } from './suite/utils';
 
 describe('Integration with Roo-Code', async () => {
 	let rooSpawn: RooSpawnExtension.RooSpawn;
@@ -17,7 +18,11 @@ describe('Integration with Roo-Code', async () => {
 		rooCode = result.rooCode;
 	});
 
-	it('Simple task', tf(async (fail) => {
+	afterEach(async () => {
+		await rooSpawn.clineController.abortTaskStack();
+	});
+
+	it('Simple task test', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
 		rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
@@ -25,16 +30,12 @@ describe('Integration with Roo-Code', async () => {
 		});
 		const controller: IClineController = rooSpawn.clineController;
 
-		// Test
 		const tx = fakeAi.handlersManager.add();
 		tx.send({ type: 'text', text: 'Hello, world!' });
 		tx.send({ type: 'text', text: ' Bye, world!' });
 		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
 		tx.ret();
 
-		while (controller.isBusy()) {
-			await new Promise(resolve => setTimeout(resolve, 100));
-		}
 		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'));
 
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'test' });
@@ -45,7 +46,7 @@ describe('Integration with Roo-Code', async () => {
 		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'completion_result', text: '' });
 	}));
 
-	it('Create subtask', tf(async (fail) => {
+	it('Subtasks are handled correctly', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
 		rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
@@ -55,14 +56,10 @@ describe('Integration with Roo-Code', async () => {
 		});
 		const controller: IClineController = rooSpawn.clineController;
 
-		// Test
 		const tx = fakeAi.handlersManager.add();
 		const tx2 = fakeAi.handlersManager.add();
 		const tx3 = fakeAi.handlersManager.add();
 
-		while (controller.isBusy()) {
-			await new Promise(resolve => setTimeout(resolve, 100));
-		}
 		const messageRx = await controller.startTask(new RooSpawnExtension.Task('test', 'code'));
 
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'test' });
@@ -95,54 +92,111 @@ describe('Integration with Roo-Code', async () => {
 		assertMessage((await messageRx.next()).value, { type: 'status', status: 'completed' });
 		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'completion_result', text: '' });
 	}));
+
+	it('Starting task sets `clineId` and `tx` fields of the task', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const task1 = new RooSpawnExtension.Task('test', 'code');
+		await controller.startTask(task1);
+
+		assert.isDefined(task1.clineId);
+		assert.isDefined(task1.tx);
+	}));
+
+	it('Aborts root task correctly', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+			autoApprovalEnabled: true,
+			alwaysAllowSubtasks: true,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+
+		const task1 = new RooSpawnExtension.Task('test', 'code');
+		const messageRx = await controller.startTask(task1);
+		eventsCollector.addMessagesRx(messageRx, 'messages', () => task1.tx.send({ type: 'exitMessageHandler' }));
+
+		tx.send({ type: 'text', text: 'Hello, world!' });
+		tx.ret();
+
+		await cursor.waitFor((event) =>
+			event.type === 'message'
+				&& event.message.type === 'say'
+				&& event.message.say === 'text'
+				&& event.message.text === 'Hello, world!'
+		);
+		
+		await controller.abortTaskStack();
+
+		await cursor.clone().waitFor((event) => 
+			event.type === 'message'
+				&& event.sender === 'messages'
+				&& event.message.type === 'status'
+				&& event.message.status === 'aborted'
+		);
+		await cursor.clone().waitFor((event) => 
+			event.type === 'rootTaskEnded' && event.taskId === task1.clineId
+		);
+		
+		eventsCollector.dispose();		
+	}));
+
+	it('Aborts task stack correctly', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+			autoApprovalEnabled: true,
+			alwaysAllowSubtasks: true,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+		const tx2 = fakeAi.handlersManager.add();
+
+		const task1 = new RooSpawnExtension.Task('test', 'code');
+		const messageRx = await controller.startTask(task1);
+		eventsCollector.addMessagesRx(messageRx, 'messages', () => task1.tx.send({ type: 'exitMessageHandler' }));
+
+		tx.send({ type: 'text', text: '<new_task><mode>code</mode><message>Implement a new feature for the application.</message></new_task>' });
+		tx.ret();
+
+		tx2.send({ type: 'text', text: 'Hello, world!' });
+		tx2.ret();
+
+		await cursor.waitFor((event) =>
+			event.type === 'message'
+				&& event.message.type === 'say'
+				&& event.message.say === 'text'
+				&& event.message.text === 'Hello, world!'
+		);
+		
+		await controller.abortTaskStack();
+
+		await cursor.clone().waitFor((event) => 
+			event.type === 'message'
+				&& event.sender === 'messages'
+				&& event.message.type === 'status'
+				&& event.message.status === 'aborted'
+		);
+		await cursor.clone().waitFor((event) => 
+			event.type === 'rootTaskEnded' && event.taskId === task1.clineId
+		);
+
+		eventsCollector.dispose();
+	}));
 });
-
-function assertMessage(message: Message | void, expected: Message) {
-	if (message !== null && typeof message === 'object') {
-		switch (expected.type) {
-			case 'say':
-				if (message.type !== 'say') {
-					assert.fail('Expected say message, but got ' + message.type);
-				}
-				assert.equal(message.say, expected.say);
-				if (expected.text !== undefined) {
-					assert.equal(message.text, expected.text);
-				}
-				if (expected.images !== undefined) {
-					assert.deepEqual(message.images, expected.images);
-				}
-				break;
-			case 'ask':
-				if (message.type !== 'ask') {
-					assert.fail('Expected ask message, but got ' + message.type);
-				}
-				assert.equal(message.ask, expected.ask);
-				if (expected.text !== undefined) {
-					assert.equal(message.text, expected.text);
-				}
-				break;
-			case 'status':
-				if (message.type !== 'status') {
-					assert.fail('Expected status message, but got ' + message.type);
-				}
-				assert.equal(message.status, expected.status);
-				break;
-			case 'exitMessageHandler':
-				if (message.type !== 'exitMessageHandler') {
-					assert.fail('Expected exitMessageHandler message, but got ' + message.type);
-				}
-				break;
-		}
-	} else {
-		assert.fail('Message is undefined');
-	}
-}
-
-function tf(func: (fail: (message: string) => void) => Promise<void>): (done: (err: any) => void) => void {
-	return (done) => {
-		Promise.resolve()
-			.then(() => func((message) => done(new Error(message))))
-			.then(() => done(undefined))
-			.catch((err) => done(err));
-	};
-}

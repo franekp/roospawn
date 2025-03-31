@@ -5,6 +5,12 @@ import { EventEmitter } from 'events';
 import { Channel } from './async_utils';
 import { Task } from './roospawn';
 
+/**
+ * Assumptions about the controller implementation not represented in the interface:
+ * - `startTask` must set `clineId` and `tx` fields of the task.
+ * - `abortTaskStack` must abort all tasks including subtasks, send status `aborted` message and emit `rootTaskEnded` event.
+ *   The order of delivery of the message and the event is not specified.
+ */
 export interface IClineController extends EventEmitter<ControllerEvents> {
     canResumeTask(task: Task): Promise<boolean>;
     resumeTask(task: Task): Promise<void>;

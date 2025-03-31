@@ -170,7 +170,11 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         }
 
         const { tx, rx } = Channel.create<Message>();
-        this.createRooCodeTask = (taskId: string) => ({ type: 'roospawn', rootTaskId: taskId, tx });
+        task.tx = tx;
+        this.createRooCodeTask = (taskId: string) => {
+            task.clineId = taskId;
+            return { type: 'roospawn', rootTaskId: taskId, tx };
+        };
         await this.api.startNewTask(task.prompt);
         return rx;
     }
