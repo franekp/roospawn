@@ -199,4 +199,76 @@ describe('Integration with Roo-Code', async () => {
 
 		eventsCollector.dispose();
 	}));
+
+	it('User tasks emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+
+		const tx = fakeAi.handlersManager.add();
+
+		await rooCode.startNewTask('test');
+
+
+		tx.send({ type: 'text', text: 'Hello, world!' });
+		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx.ret();
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		console.log("rootTaskStartedEvent", rootTaskStartedEvent);
+		
+		const rootTaskEndedEvent = await cursor.waitFor((event) => event.type === 'rootTaskEnded');
+		console.log("rootTaskEndedEvent", rootTaskEndedEvent);
+
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+		assert(rootTaskEndedEvent.type === 'rootTaskEnded');
+
+		assert.equal(rootTaskStartedEvent.taskId, rootTaskEndedEvent.taskId);
+
+		eventsCollector.dispose();
+	}));
+
+	it('User subtasks do not emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+			autoApprovalEnabled: true,
+			alwaysAllowSubtasks: true,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+		const tx2 = fakeAi.handlersManager.add();
+		const tx3 = fakeAi.handlersManager.add();
+
+		await rooCode.startNewTask('test');
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+
+		tx.send({ type: 'text', text: '<new_task><mode>code</mode><message>Implement a new feature for the application.</message></new_task>' });
+		tx.ret();
+
+		tx2.send({ type: 'text', text: 'Hello, world!' });
+		tx2.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx2.ret();
+		
+		tx3.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>'});
+		tx3.ret();
+
+		const rootTaskEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEvent.type === 'rootTaskEnded' && rootTaskEvent.taskId === rootTaskStartedEvent.taskId);
+		
+		eventsCollector.dispose();
+	}));
 });

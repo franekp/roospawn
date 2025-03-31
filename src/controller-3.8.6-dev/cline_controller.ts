@@ -277,14 +277,14 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
     }
 
     private emitRootTaskStarted(taskId: string) {
-        if (!this.isBusy) {
+        if (!this._isBusy) {
             this._isBusy = true;
             this.emit('rootTaskStarted', taskId);
         }
     }
 
     private emitRootTaskEnded(taskId: string) {
-        if (this.isBusy) {
+        if (this._isBusy) {
             this._isBusy = false;
             this.emit('rootTaskEnded', taskId);
         }
