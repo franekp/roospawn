@@ -198,6 +198,13 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         return this._isAsking;
     }
 
+    async waitForAddingTaskToStack(): Promise<void> {
+        const stackSize = this.api.getCurrentTaskStack().length;
+        while (this.api.getCurrentTaskStack().length === stackSize) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
     private handleMessage(taskId: string, message: ClineMessage) {
         this.emit('keepalive');
 

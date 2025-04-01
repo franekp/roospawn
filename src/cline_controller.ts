@@ -22,6 +22,7 @@ export interface IClineController extends EventEmitter<ControllerEvents> {
     // This needs to be only a good approximation, it is only used to detect the initial state when we attach to the controller.
     isBusy(): boolean;
     isAsking(): boolean;
+    waitForAddingTaskToStack(): Promise<void>;
 }
 
 export type ControllerEvents = {

@@ -145,6 +145,10 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         return this._isAsking;
     }
 
+    async waitForAddingTaskToStack(): Promise<void> {
+        // Our best effort for this old version of Roo-Code
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
     attachTrackerToCline(cline: Cline, params?: ControllingTrackerParams) {
         let isRunning = true;
         const taskEnded = () => {

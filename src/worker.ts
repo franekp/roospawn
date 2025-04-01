@@ -143,7 +143,7 @@ export class Worker {
                         break;
                     case 'aborted':
                         if (t.status !== 'running') {
-                            return;
+                            break;
                         }
                         const hookResult2 = await t.runHook('onpause');
                         t.status = hookResult2.failed ? 'error' : (this.clineController.isAsking() ? 'asking' : 'aborted');
@@ -249,6 +249,10 @@ export class Worker {
                 // This is RooSpawn task resumed by the user via Roo-Code,
                 // so lets quickly abort it and run again via worker loop.
                 this.forceNextTask = task;
+                // Now (in `onRootTaskStarted`) we are in the sittuation that a new Cline instance
+                // was created, but it was not added to the stack yet.
+                // We need to wait until it is added to the stack, to proparely abort it.
+                await this.clineController.waitForAddingTaskToStack();
                 await this.clineController.abortTaskStack();
                 this.wakeup?.();
             } else {
