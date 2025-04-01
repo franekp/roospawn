@@ -48,10 +48,7 @@ export class FakeAi {
     async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]) {
         const handlerRx = this.handlersManager.handle(systemPrompt, messages);
         if (handlerRx) {
-			for await (const chunk of handlerRx) {
-				console.log("chunk", chunk);
-				yield chunk;
-			}
+			yield* handlerRx;
         } else {
 			this.onUnhandledQuery();
 		}

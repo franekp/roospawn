@@ -162,6 +162,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
 
         this.rooCodeTasks.set(clineId, { type: 'roospawn', rootTaskId: clineId, tx });
         this.createRooCodeTask = (taskId: string) => ({ type: 'roospawn', rootTaskId: taskId, tx });
+        await this.api.setConfiguration({ mode: task.mode });
         await this.api.resumeTask(clineId);
     }
     async startTask(task: Task): Promise<MessagesRx> {
@@ -175,6 +176,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
             task.clineId = taskId;
             return { type: 'roospawn', rootTaskId: taskId, tx };
         };
+        await this.api.setConfiguration({ mode: task.mode });
         await this.api.startNewTask(task.prompt);
         return rx;
     }

@@ -200,6 +200,77 @@ describe('Integration with Roo-Code', async () => {
 		eventsCollector.dispose();
 	}));
 
+	it('RooSpawn tasks emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+
+		const tx = fakeAi.handlersManager.add();
+
+		const task = new RooSpawnExtension.Task('test', 'code');
+		await controller.startTask(task);
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.taskId === task.clineId);
+		
+		tx.send({ type: 'text', text: 'Hello, world!' });
+		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx.ret();
+
+		const rootTaskEndedEvent = await cursor.waitFor((event) => event.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent.taskId === task.clineId);
+		
+		eventsCollector.dispose();
+	}));
+
+	it('RooSpawn subtasks do not emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+			autoApprovalEnabled: true,
+			alwaysAllowSubtasks: true,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+		const tx2 = fakeAi.handlersManager.add();
+		const tx3 = fakeAi.handlersManager.add();
+
+		const task = new RooSpawnExtension.Task('test', 'code');
+		await controller.startTask(task);
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.taskId === task.clineId);
+
+		tx.send({ type: 'text', text: '<new_task><mode>code</mode><message>Implement a new feature for the application.</message></new_task>' });
+		tx.ret();
+
+		tx2.send({ type: 'text', text: 'Hello, world!' });
+		tx2.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx2.ret();
+		
+		tx3.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>'});
+		tx3.ret();
+
+		const rootTaskEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEvent.type === 'rootTaskEnded' && rootTaskEvent.taskId === task.clineId);
+		
+		eventsCollector.dispose();
+	}));
+
 	it('User tasks emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
 		rooCode.setConfiguration({
@@ -215,18 +286,14 @@ describe('Integration with Roo-Code', async () => {
 
 		await rooCode.startNewTask('test');
 
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
 
 		tx.send({ type: 'text', text: 'Hello, world!' });
 		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
 		tx.ret();
-
-		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
-		console.log("rootTaskStartedEvent", rootTaskStartedEvent);
 		
 		const rootTaskEndedEvent = await cursor.waitFor((event) => event.type === 'rootTaskEnded');
-		console.log("rootTaskEndedEvent", rootTaskEndedEvent);
-
-		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
 		assert(rootTaskEndedEvent.type === 'rootTaskEnded');
 
 		assert.equal(rootTaskStartedEvent.taskId, rootTaskEndedEvent.taskId);
@@ -270,5 +337,37 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEvent.type === 'rootTaskEnded' && rootTaskEvent.taskId === rootTaskStartedEvent.taskId);
 		
 		eventsCollector.dispose();
+	}));
+
+	it('RooSpawn sets the proper mode in the Roo-Code configuration when starting a task', tf(async (fail) => {
+		const ASK_MODE_PROMPT = 'You are Roo, a knowledgeable technical assistant focused on answering questions and providing information about software development, technology, and related topics.';
+
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		let resolve: () => void = () => {};
+		let promise = new Promise<void>((r) => { resolve = r; });
+		const tx = fakeAi.handlersManager.add('request', (systemPrompt, messages, manager) => {
+			if (systemPrompt.startsWith(ASK_MODE_PROMPT)) {
+				resolve();
+			} else {
+				fail('Invalid system prompt -- probably the AI mode was not changed correctly');
+			}
+
+			return true;
+
+		});
+
+		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx.ret();
+
+		const task = new RooSpawnExtension.Task('test', 'ask');
+		await controller.startTask(task);
+
+		await promise;
 	}));
 });

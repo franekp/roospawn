@@ -8,6 +8,7 @@ import { Task } from './roospawn';
 /**
  * Assumptions about the controller implementation not represented in the interface:
  * - `startTask` must start a new task and set `clineId` and `tx` fields of the task.
+ * - `startTask` and `resumeTask` must set the proper mode in the Roo-Code configuration.
  * - `abortTaskStack` must abort all tasks including subtasks, send status `aborted` message and emit `rootTaskEnded` event.
  *   The order of delivery of the message and the event is not specified.
  * - starting and completing a user task should emit `rootTaskStarted` and `rootTaskEnded` events,

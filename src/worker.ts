@@ -4,21 +4,42 @@ import { Task } from './roospawn';
 
 
 export class Worker {
+    /** Whether the worker is active. */
     public active: boolean = true;
+
+    /**
+     * A function that wakes up the worker.
+     * Call it when there is a chance that the worker can take the next task to run.
+     */
     public wakeup?: () => void;
 
-    // Timeout for currently running task
+    /** How much time to wait for keepalive signal before aborting the currently running task. */
     private _timeoutMs: number | 'no_timeout' = 'no_timeout';
+
+    /** The timeout object, so we can cancel current timeout on keepalive signal. */
     private _timeout?: NodeJS.Timeout;
 
-    // Note, that the RooSpawn task is active even when the controller is not busy
-    // (e.g. when the hooks are running).
+    /**
+     * The task that is currently running by the RooSpawn extension.
+     * Note, that the worker can have an active task even when the controller is not busy.
+     * This happens, for example, when the hooks are running.
+     */
     private activeRooSpawnTask?: WeakRef<Task>;
+
+    /**
+     * Whether the controller is busy (i.e. it is handling a RooSpawn or user task).
+     */
     private _isControllerBusy: boolean;
+
+    /**
+     * Transfers the task object from the caller of `startTask` (or `resumeTask`) to the handler of `rootTaskStarted` event.
+     */
     private initializedRooSpawnTask?: Task;
 
-    // When user resumes a RooSpawn task, we quickly abort it and run again via worker loop.
-    // Setting this property will force the worker to run this task instead of the one from the queue.
+    /**
+     * When user resumes a RooSpawn task, we quickly abort it and run again via the worker loop.
+     * Setting this property will force the worker to run the stored task instead of the one from the queue.
+     */
     private forceNextTask?: Task;
 
     constructor(
@@ -43,13 +64,12 @@ export class Worker {
                     this.wakeup = undefined;
                 }
 
-                console.info("Running task", task);
                 this.activeRooSpawnTask = new WeakRef(task);
 
                 task.status = 'running';
                 this.scheduleUiRepaint();
 
-                // Abort all tasks, so we have a clean state when we start our new task.
+                // Abort tasks run in the controller, so we have a clean state when we start our new task.
                 await this.clineController.abortTaskStack();
 
                 const isResuming = await this.clineController.canResumeTask(task);
@@ -103,6 +123,11 @@ export class Worker {
             let t = task.deref();
             if (t === undefined) {
                 // The task object has been removed
+                if (this.activeRooSpawnTask?.deref() === undefined) {
+                    this.activeRooSpawnTask = undefined;
+                    this.wakeup?.();
+                    this.scheduleUiRepaint();
+                }
                 return;
             }
             
@@ -138,6 +163,7 @@ export class Worker {
         }
     }
 
+    /** Returns a task if there is one, and the controller can run it. */
     private taskToRunIfWeCan(): Task | undefined {
         if (this.isBusy) {
             return undefined;
@@ -157,8 +183,20 @@ export class Worker {
         return this.nextTaskFromQueue();
     }
 
+    /**
+     * Returns whether the worker can run a new task.
+     * Note, that we have two kinds of beeing busy:
+     * 
+     * 1. The controller can be busy, because it is handling a RooSpawn or user task.
+     * 2. The worker can be busy, because it is running a task (or its hooks).
+     * 
+     * Controller reports busyness via `isBusy` property and `rootTaskStarted`/`rootTaskEnded`
+     * events.
+     * 
+     * Worker starts being busy when it takes next task from the queue and ends when it runs
+     * `onpause`/`oncomplete` hook.
+     */
     get isBusy(): boolean {
-        console.log("isBusy", this._isControllerBusy, this.activeRooSpawnTask);
         return this._isControllerBusy || this.activeRooSpawnTask !== undefined;
     }
 
@@ -186,10 +224,10 @@ export class Worker {
         this.onKeepalive();
 
         const task = this.activeRooSpawnTask?.deref();
-        if (task !== undefined) {
-            await this.clineController.abortTaskStack();
-        } else {
-            await this.clineController.abortTaskStack();
+        await this.clineController.abortTaskStack();
+        if (task === undefined) {
+            // In this case, activeRooSpawnTask will not be cleared by message handler,
+            // because the task is already deleted.
             this.activeRooSpawnTask = undefined;
             this.wakeup?.();
             this.scheduleUiRepaint();
@@ -202,13 +240,14 @@ export class Worker {
         this._isControllerBusy = true;
 
         if (this.initializedRooSpawnTask !== undefined) {
+            // This is a RooSpawn task that was started or resumed by the RooSpawn extension.
             this.initializedRooSpawnTask.clineId = clineTaskId;
             this.initializedRooSpawnTask = undefined;
         } else {
-            console.log("onRootTaskStarted", clineTaskId, this.tasks);
             const task = this.tasks.find(t => t.clineId === clineTaskId);
             if (task !== undefined) {
-                // This is RooSpawn task resumed by the user via Roo-Code, so lets quickly abort it and run again via worker loop.
+                // This is RooSpawn task resumed by the user via Roo-Code,
+                // so lets quickly abort it and run again via worker loop.
                 this.forceNextTask = task;
                 await this.clineController.abortTaskStack();
                 this.wakeup?.();
