@@ -13,6 +13,7 @@ import { Task } from './roospawn';
  *   The order of delivery of the message and the event is not specified.
  * - starting and completing a user task should emit `rootTaskStarted` and `rootTaskEnded` events,
  *   however, entering or exiting subtasks should not emit them.
+ * - user interaction with the task after `rootTaskEnded` event should emit `rootTaskStarted` event.
  */
 export interface IClineController extends EventEmitter<ControllerEvents> {
     canResumeTask(task: Task): Promise<boolean>;

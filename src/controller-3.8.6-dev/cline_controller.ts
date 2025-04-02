@@ -230,6 +230,11 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
                 }
             };
 
+            const userFeedback = message.type === 'say' && message.say === 'user_feedback';
+            if (userFeedback) {
+                this.emitRootTaskStarted(taskId);
+            }
+
             postMessage(() => clineMessageToMessage(message));
 
             const finishesRootTask = message.type === 'say'

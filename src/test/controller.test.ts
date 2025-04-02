@@ -370,4 +370,89 @@ describe('Integration with Roo-Code', async () => {
 
 		await promise;
 	}));
+
+	it('User feedback to finished RooSpawn task should emit `rootTaskStarted` event', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+
+		const task = new RooSpawnExtension.Task('test', 'code');
+		await controller.startTask(task);
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+		
+		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx.ret();
+
+		const rootTaskEndedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent.type === 'rootTaskEnded');
+		
+		// Wait for "ask:completion_result" to be shown in the UI, so Roo-Code knows where to send the user message.
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+
+		const tx2 = fakeAi.handlersManager.add();
+		await rooCode.sendMessage('Message from user');
+
+		const rootTaskStartedEvent2 = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskStartedEvent2.type === 'rootTaskStarted');
+		
+		tx2.send({ type: 'text', text: '<attempt_completion><result>Bye</result></attempt_completion>' });
+		tx2.ret();
+
+		const rootTaskEndedEvent2 = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent2.type === 'rootTaskEnded');
+
+		eventsCollector.dispose();
+	}));
+
+	it('User feedback to finished user task should emit `rootTaskStarted` event', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+		
+		const tx = fakeAi.handlersManager.add();
+
+		await rooCode.startNewTask('test');
+
+		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
+		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
+		
+		tx.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx.ret();
+
+		const rootTaskEndedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent.type === 'rootTaskEnded');
+		
+		// Wait for "ask:completion_result" to be shown in the UI, so Roo-Code knows where to send the user message.
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+
+		const tx2 = fakeAi.handlersManager.add();
+		await rooCode.sendMessage('Message from user');
+
+		const rootTaskStartedEvent2 = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskStartedEvent2.type === 'rootTaskStarted');
+		
+		tx2.send({ type: 'text', text: '<attempt_completion><result>Bye</result></attempt_completion>' });
+		tx2.ret();
+
+		const rootTaskEndedEvent2 = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
+		assert(rootTaskEndedEvent2.type === 'rootTaskEnded');
+
+		eventsCollector.dispose();
+	}));
 });

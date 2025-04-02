@@ -109,6 +109,27 @@ export class Worker {
         }
     }
 
+
+    /** Returns a task if there is one, and the controller can run it. */
+    private taskToRunIfWeCan(): Task | undefined {
+        if (this.isBusy) {
+            return undefined;
+        }
+
+        if (this.forceNextTask !== undefined) {
+            // We run forced task even when the worker is inactive, because the user asked to run this task.
+            const task = this.forceNextTask;
+            this.forceNextTask = undefined;
+            return task;
+        }
+
+        if (!this.active) {
+            return undefined;
+        }
+
+        return this.nextTaskFromQueue();
+    }
+
     private async handleTaskMessages(task: WeakRef<Task>, rx: MessagesRx) {
         let msg: IteratorResult<Message, void>;
         while (!(msg = await rx.next()).done) {
@@ -116,14 +137,11 @@ export class Worker {
 
             console.log('message', value);
 
-            if (value.type === 'exitMessageHandler') {
-                return;
-            }
-
+            
             let t = task.deref();
-            if (t === undefined) {
+            if (t === undefined || value.type === 'exitMessageHandler') {
                 // The task object has been removed
-                if (this.activeRooSpawnTask?.deref() === undefined) {
+                if (this.activeRooSpawnTask?.deref() === t) {
                     this.activeRooSpawnTask = undefined;
                     this.wakeup?.();
                     this.scheduleUiRepaint();
@@ -161,26 +179,6 @@ export class Worker {
                 t.conversation.push(value);
             }
         }
-    }
-
-    /** Returns a task if there is one, and the controller can run it. */
-    private taskToRunIfWeCan(): Task | undefined {
-        if (this.isBusy) {
-            return undefined;
-        }
-
-        if (this.forceNextTask !== undefined) {
-            // We run forced task even when the worker is inactive, because the user asked to run this task.
-            const task = this.forceNextTask;
-            this.forceNextTask = undefined;
-            return task;
-        }
-
-        if (!this.active) {
-            return undefined;
-        }
-
-        return this.nextTaskFromQueue();
     }
 
     /**
@@ -222,18 +220,9 @@ export class Worker {
     
     private async onTimeout() {
         this.onKeepalive();
+        this.timeoutMs = 'no_timeout';
 
-        const task = this.activeRooSpawnTask?.deref();
-        await this.clineController.abortTaskStack();
-        if (task === undefined) {
-            // In this case, activeRooSpawnTask will not be cleared by message handler,
-            // because the task is already deleted.
-            this.activeRooSpawnTask = undefined;
-            this.wakeup?.();
-            this.scheduleUiRepaint();
-        }
-        
-        this.timeoutMs = 'no_timeout';        
+        await this.clineController.abortTaskStack();        
     }
 
     private async onRootTaskStarted(clineTaskId: string) {
