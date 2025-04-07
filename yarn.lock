@@ -1295,10 +1295,10 @@
   resolved "https://registry.yarnpkg.com/@types/vscode-notebook-renderer/-/vscode-notebook-renderer-1.72.3.tgz#013380d8ddfb9a5dc4b831ff025721afa0fd308b"
   integrity sha512-MfmEI3A2McbUV2WaijoTgLOAs9chwHN4WmqOedl3jdtlbzJBWIQ9ZFmQdzPa3lYr5j8DJhRg3KB5AIM/BBfg9Q==
 
-"@types/vscode@^1.97.0":
-  version "1.97.0"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.97.0.tgz#62ce3a32243019aaa4fc20cee2a3de06bc71af4f"
-  integrity sha512-ueE73loeOTe7olaVyqP9mrRI54kVPJifUPjblZo9fYcv1CuVLPOEKEkqW0GkqPC454+nCEoigLWnC2Pp7prZ9w==
+"@types/vscode@^1.88.0":
+  version "1.99.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.99.0.tgz#94d2ea56071ce7cc60ebe52dd7674bac6c37459c"
+  integrity sha512-30sjmas1hQ0gVbX68LAWlm/YYlEqUErunPJJKLpEl+xhK0mKn+jyzlCOpsdTwfkZfPy4U6CDkmygBLC3AB8W9Q==
 
 "@typescript-eslint/eslint-plugin@^8.22.0":
   version "8.25.0"
@@ -1670,6 +1670,15 @@ asynckit@^0.4.0:
   version "0.4.0"
   resolved "https://registry.yarnpkg.com/asynckit/-/asynckit-0.4.0.tgz#c79ed97f7f34cb8f2ba1bc9790bcc366474b4b79"
   integrity sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==
+
+axios@^1.8.2:
+  version "1.8.4"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.8.4.tgz#78990bb4bc63d2cae072952d374835950a82f447"
+  integrity sha512-eBSYY4Y68NNlHbHBMdeDmKNtDgXWhQsJcGqzO3iLUM0GraQFSS9cVgPX5I9b3lbdFKyYoAEGAZF1DwhTaljNAw==
+  dependencies:
+    follow-redirects "^1.15.6"
+    form-data "^4.0.0"
+    proxy-from-env "^1.1.0"
 
 babel-plugin-polyfill-corejs2@^0.4.10:
   version "0.4.12"
@@ -2439,6 +2448,11 @@ flatted@^3.2.9:
   version "3.3.3"
   resolved "https://registry.yarnpkg.com/flatted/-/flatted-3.3.3.tgz#67c8fad95454a7c7abebf74bb78ee74a44023358"
   integrity sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==
+
+follow-redirects@^1.15.6:
+  version "1.15.9"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.15.9.tgz#a604fa10e443bf98ca94228d9eebcc2e8a2c8ee1"
+  integrity sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==
 
 foreground-child@^3.1.0, foreground-child@^3.1.1:
   version "3.3.1"
@@ -3373,6 +3387,13 @@ pkg-dir@^4.2.0:
   dependencies:
     find-up "^4.0.0"
 
+posthog-node@^4.11.2:
+  version "4.11.2"
+  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-4.11.2.tgz#8ed96d90fc85314c80568a307cc249b763998a86"
+  integrity sha512-zzXCzatMyXcDdvcSJFoCV1lA+5LkT2f7dt1vj6I4S6QGUWlRMMu8krApseUY4/E8m2rhQlmR8BZU/2xXcgS7XQ==
+  dependencies:
+    axios "^1.8.2"
+
 prelude-ls@^1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/prelude-ls/-/prelude-ls-1.2.1.tgz#debc6489d7a6e6b0e7611888cec880337d316396"
@@ -3382,6 +3403,11 @@ process-nextick-args@~2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/process-nextick-args/-/process-nextick-args-2.0.1.tgz#7820d9b16120cc55ca9ae7792680ae7dba6d7fe2"
   integrity sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==
+
+proxy-from-env@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/proxy-from-env/-/proxy-from-env-1.1.0.tgz#e102f16ca355424865755d2c9e8ea4f24d58c3e2"
+  integrity sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==
 
 punycode@^2.1.0:
   version "2.3.1"
