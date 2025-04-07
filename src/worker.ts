@@ -14,11 +14,10 @@ export class Worker {
      * Call it when there is a chance that the worker can take the next task to run.
      */
     private _wakeupRooSpawn?: () => void;
-    private _onUserStarted?: () => void;
-    private _onUserEnded?: () => void;
+    private _onUserTaskStarted?: () => void;
+    private _onUserTaskEnded?: () => void;
 
     private _runningUserTask: boolean;
-    private _runningRooSpawnTask: boolean;
 
     /**
      * Transfers the task object from the caller of `startTask` (or `resumeTask`) to the handler of `rootTaskStarted` event.
@@ -50,14 +49,11 @@ export class Worker {
     private async rooSpawnTaskLoop() {
         while (true) {
             let task: Task | undefined = undefined;
-            let onControllerKeepalive: () => void | undefined = undefined;
             try {
                 while ((task = this.taskToRunIfWeCan()) === undefined) {
                     await new Promise<void>(resolve => { this._wakeupRooSpawn = resolve; });
                     this._wakeupRooSpawn = undefined;
                 }
-
-                this._runningRooSpawnTask = true;
 
                 task.status = 'running';
                 this.tasks.emit('update');
@@ -115,9 +111,9 @@ export class Worker {
                     taskLifecycle.onStatusMessage = handleStatus;
                     
                     await this.clineController.resumeTask(task);
-                    // when resuming, we don't need to handle messages, because the "thread"
+                    // When resuming, we don't need to handle messages, because the "thread"
                     // that handles messages has been started when the task was started and
-                    // it will continue to handle messages.
+                    // it will continue to handle messages now.
                 } else {
                     const channel = await this.clineController.startTask(task);
 
@@ -126,23 +122,21 @@ export class Worker {
                     taskLifecycle.onStatusMessage = handleStatus;
                     taskLifecycle.on('status', () => this.tasks.emit('update'));
 
-                    // we don't await handleTaskMessages(), message handling is
-                    // a separate "thread", independent from the worker
+                    // We don't await `runMessageHandler()`. Message handling is
+                    // a separate "thread", independent from the RooSpawn task loop.
                     taskLifecycle.runMessageHandler();
                 }
 
-                const timeoutMs = isResuming ? 30 * 1000 : 10 * 1000;
-                const watchdog = new Watchdog<void>(timeoutMs);
+                const watchdog = new Watchdog<void>(isResuming ? 30_000 : 10_000);
 
-                onControllerKeepalive = () => watchdog.keepalive();
+                const onControllerKeepalive = () => watchdog.keepalive();
                 this.clineController.on('keepalive', onControllerKeepalive);
-
-                const timeoutResult = await watchdog.run(endTaskPromise);
-
-                this.clineController.off('keepalive', onControllerKeepalive);
-                onControllerKeepalive = undefined;
-
+                let timeoutResult = await watchdog.run(endTaskPromise).finally(() => {
+                    this.clineController.off('keepalive', onControllerKeepalive);
+                });
+                
                 if (timeoutResult.reason === 'timeout') {
+                    taskLifecycle.onStatusMessage = undefined;
                     const hookResult = await task.runHook('onpause');
                     const newStatus = hookResult.failed ? 'error' : 'asking';
                     taskLifecycle.setStatus(newStatus);
@@ -157,11 +151,6 @@ export class Worker {
                 } else {
                     console.error('Error in RooSpawn', e);
                 }
-            } finally {
-                if (onControllerKeepalive !== undefined) {
-                    this.clineController.off('keepalive', onControllerKeepalive);
-                }
-                this._runningRooSpawnTask = false;
             }
         }
     }
@@ -169,16 +158,16 @@ export class Worker {
     private async userTaskLoop() {
         while (true) {
             if (!this._runningUserTask) {
-                await new Promise<void>(resolve => { this._onUserStarted = resolve; });
-                this._onUserStarted = undefined;
+                await new Promise<void>(resolve => { this._onUserTaskStarted = resolve; });
+                this._onUserTaskStarted = undefined;
                 this._runningUserTask = true;
             }
             
-            const waitForEnd = new Promise<void>(resolve => { this._onUserEnded = resolve; });
+            const waitForEnd = new Promise<void>(resolve => { this._onUserTaskEnded = resolve; });
 
             // Note: we can apply here some soft timeout to e.g. warn user that some task is blocking RooSpawn.
             await waitForEnd;
-            this._onUserEnded = undefined;
+            this._onUserTaskEnded = undefined;
             this._runningUserTask = false;
         }
     }
@@ -235,14 +224,14 @@ export class Worker {
             } else {
                 // This is user task
                 this._runningUserTask = true;
-                this._onUserStarted?.();
+                this._onUserTaskStarted?.();
             }
         }
     }
 
     private onRootTaskEnded(clineTaskId: string) {
         this._runningUserTask = false;
-        this._onUserEnded?.();
+        this._onUserTaskEnded?.();
     }
 }
 
