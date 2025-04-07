@@ -127,7 +127,7 @@ export class Worker {
                     taskLifecycle.runMessageHandler();
                 }
 
-                const watchdog = new Watchdog<void>(isResuming ? 30_000 : 10_000);
+                const watchdog = new Watchdog<void>(isResuming ? 300_000 : 30_000);
 
                 const onControllerKeepalive = () => watchdog.keepalive();
                 this.clineController.on('keepalive', onControllerKeepalive);
