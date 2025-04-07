@@ -1,5 +1,5 @@
 // This file contains version-independent type of message from Cline to user.
-// Controllers of different versions must convert they message types to the types defined here.
+// Controllers of different versions must convert their message types to the types defined here.
 
 import { EventEmitter } from 'events';
 import { Channel } from './async_utils';
@@ -22,8 +22,7 @@ export interface IClineController extends EventEmitter<ControllerEvents> {
     abortTaskStack(): Promise<void>;
     // This needs to be only a good approximation, it is only used to detect the initial state when we attach to the controller.
     isBusy(): boolean;
-    isAsking(): boolean;
-    waitForAddingTaskToStack(): Promise<void>;
+    waitForAddingTaskToStack(clineTaskId: string): Promise<void>;
 }
 
 export type ControllerEvents = {

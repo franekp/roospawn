@@ -76,14 +76,13 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
     
     private log: vscode.OutputChannel | undefined;
     private _isBusy: boolean;
-    private _isAsking: boolean;
 
     // This is set before `startNewTask` or `resumeTask` is called,
     // and used inside `handleTaskStarted` to create a RooCodeTask
     // for newely started task.
     private createRooCodeTask?: (taskId: string) => RooCodeTask;
 
-    constructor(private api: RooCodeAPI, private tasks: Task[], private enableLogging: boolean = false) {
+    constructor(private api: RooCodeAPI, private enableLogging: boolean = false) {
         super();
 
         // attach events to the API
@@ -194,13 +193,8 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         return this._isBusy;
     }
 
-    isAsking() {
-        return this._isAsking;
-    }
-
-    async waitForAddingTaskToStack(): Promise<void> {
-        const stackSize = this.api.getCurrentTaskStack().length;
-        while (this.api.getCurrentTaskStack().length === stackSize) {
+    async waitForAddingTaskToStack(clineTaskId: string): Promise<void> {
+        while (!this.api.getCurrentTaskStack().includes(clineTaskId)) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
     }
@@ -210,10 +204,6 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
 
         if (message.partial) {
             return;
-        }
-
-        if (message.type === 'ask') {
-            this._isAsking = true;
         }
 
         const rooCodeTask = this.rooCodeTasks.get(taskId);
@@ -269,7 +259,6 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
     }
 
     private handleTaskAskResponded(taskId: string) {
-        this._isAsking = false;
         this.emit('keepalive');
     }
 

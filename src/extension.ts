@@ -4,7 +4,7 @@ import { PyNotebookController } from './py_notebook_controller';
 import { IClineController } from './cline_controller';
 import { ClineController as ClineController384 } from './controller-3.8.4/cline_controller';
 import { ClineController as ClineController386 } from './controller-3.8.6-dev/cline_controller';
-import { RooSpawn, Task } from './roospawn';
+import { RooSpawn, Task, Tasks } from './roospawn';
 
 export { RooSpawn, Task };
 
@@ -18,13 +18,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
         throw new Error('Roospawn: RooCode (rooveterinaryinc.roo-code) extension not found');
     }
 
-    const tasks: Task[] = [];
+    const tasks = new Tasks();
     let clineController: IClineController;
 
     if (ai_extension.exports.resumeTask) {
         const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
         const ClineController = ClineController386;
-        clineController = new ClineController(ai_api, tasks, true);
+        clineController = new ClineController(ai_api, true);
         vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;

@@ -139,3 +139,35 @@ export function timeout<T>(ms: number | 'no_timeout', promise?: Promise<T>): Pro
     const p: Promise<{ reason: 'promise', value: T }> = promise.then(value => ({ reason: 'promise', value }));
     return Promise.race([t, p]);
 }
+
+export class Watchdog<T> {
+    private _timeout?: NodeJS.Timeout;
+    private _resolve?: (value: { reason: 'timeout' } | { reason: 'promise', value: T }) => void;
+
+    constructor(private timeoutMs: number | 'no_timeout') {}
+
+    run(promise: Promise<T>): Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }> {
+        if (this._resolve !== undefined) {
+            throw new Error('Watchdog cannot handle two promises at the same time');
+        }
+        const p = new Promise<{ reason: 'timeout' } | { reason: 'promise', value: T }>((resolve) => this._resolve = resolve);
+        promise.then(value => {
+            // Let's clear the timeout and make further keepalive calls no-op.
+            this.timeoutMs = 'no_timeout';
+            this.keepalive();
+            // And resolve the returned promise.
+            this._resolve?.({ reason: 'promise', value });
+        });
+        this.keepalive();
+        return p;
+    }
+
+    keepalive() {
+        if (this._timeout !== undefined) {
+            clearTimeout(this._timeout);
+        }
+        if (this.timeoutMs !== 'no_timeout') {
+            this._timeout = setTimeout(() => this._resolve?.({ reason: 'timeout' }), this.timeoutMs);
+        }
+    }
+}

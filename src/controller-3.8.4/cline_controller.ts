@@ -1,25 +1,8 @@
-/*
- * When user wants to run a task in Roo-Code, they open the Roo-Code sidebar,
- * or open Roo-Code in a new tab.
- * 
- * The sidebar and each of the Roo-Code tabs have their own `ClineProvider` instance.
- * The provider is responsible for creating a `Cline` instance each time a task is run,
- * and for coordinating the process of running the task (i.e. showing messages to the user,
- * asking questions and providing answers to `Cline` instance).
- * 
- * It also provides the interface to run tools when requested by the `Cline` instance.
- * One of such tools is `new_task` which creates a new `Cline` instance and adds it to the stack
- * of `Cline` instances.
- */
-
-// TODO: finish ↑
-// TODO: handle subtasks and task preemption
-
-import { Channel, Waiters, Waiter, timeout } from '../async_utils';
-import { Cline, ClineProvider, HistoryItem } from './cline';
-import { Task } from '../roospawn';
-import { MessagesTx, MessagesRx, Message, IClineController, ControllerEvents } from '../cline_controller';
 import EventEmitter from 'events';
+import { Cline, ClineProvider, HistoryItem } from './cline';
+import { Channel } from '../async_utils';
+import { MessagesTx, MessagesRx, Message, IClineController, ControllerEvents } from '../cline_controller';
+import { Task, Tasks } from '../roospawn';
 
 export interface ControllingTrackerParams {
     channel: MessagesTx;
@@ -29,7 +12,7 @@ export interface ControllingTrackerParams {
 export class ClineController extends EventEmitter<ControllerEvents> implements IClineController {
     private _isAsking = false;
 
-    constructor(private provider: ClineProvider, private tasks: Task[]) {
+    constructor(private provider: ClineProvider, private tasks: Tasks) {
         super();
 
         const controller = this;
@@ -64,7 +47,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
             const clineId = historyItem.id;
             this.emit('rootTaskStarted', clineId);
 
-            const task = this.tasks.find(task => task.clineId === clineId);
+            const task = this.tasks.getTaskByClineId(clineId);
 
             await oldInitClineWithHistoryItem(historyItem);
             const cline = provider.getCurrentCline()!;
@@ -141,14 +124,11 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         return false;
     }
 
-    isAsking(): boolean {
-        return this._isAsking;
-    }
-
-    async waitForAddingTaskToStack(): Promise<void> {
+    async waitForAddingTaskToStack(clineTaskId: string): Promise<void> {
         // Our best effort for this old version of Roo-Code
         await new Promise(resolve => setTimeout(resolve, 100));
     }
+    
     attachTrackerToCline(cline: Cline, params?: ControllingTrackerParams) {
         let isRunning = true;
         const taskEnded = () => {

@@ -4,7 +4,8 @@ import { IClineController, Message, MessagesRx, MessagesTx } from './cline_contr
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 import { CommandRun, HookKind, HookRun } from './hooks';
-import { Worker } from './worker';
+import { TaskLifecycle, Worker } from './worker';
+import EventEmitter from 'events';
 
 
 export class Task implements ITask {
@@ -19,6 +20,7 @@ export class Task implements ITask {
 
     clineId?: string;
     tx?: MessagesTx;
+    taskLifecycle?: TaskLifecycle;
     conversation: Message[] = [];
     hookRuns: HookRun[] = [];
 
@@ -37,10 +39,7 @@ export class Task implements ITask {
         switch (this.status) {
             case 'prepared':
                 this.status = 'queued';
-                if (roospawn) {
-                    roospawn.schedule_ui_repaint();
-                    roospawn.worker.wakeup?.();
-                }
+                roospawn?.tasks.emit('update');
                 break;
             case 'queued':
                 if (verbose) {
@@ -60,10 +59,7 @@ export class Task implements ITask {
                 this.prev_attempts.unshift(this.status);
                 
                 this.status = 'queued';
-                if (roospawn) {
-                    roospawn.schedule_ui_repaint();
-                    roospawn.worker.wakeup?.();
-                }
+                roospawn?.tasks.emit('update');
                 break;
         }
     }
@@ -77,9 +73,7 @@ export class Task implements ITask {
                 break;
             case 'queued':
                 this.status = this.prev_attempts.shift() ?? 'prepared';
-                if (roospawn) {
-                    roospawn.schedule_ui_repaint();
-                }
+                roospawn?.tasks.emit('update');
                 break;
             case 'running':
                 if (verbose) {
@@ -112,9 +106,7 @@ export class Task implements ITask {
             case 'aborted':
             case 'error':
                 this.archived = true;
-                if (roospawn) {
-                    roospawn.schedule_ui_repaint();
-                }
+                roospawn?.tasks.emit('update');
                 break;
             case 'queued':
                 vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
@@ -133,9 +125,7 @@ export class Task implements ITask {
             return;
         }
         this.archived = false;
-        if (roospawn) {
-            roospawn.schedule_ui_repaint();
-        }
+        roospawn?.tasks.emit('update');
     }
 
     conversation_as_json(): string {
@@ -186,6 +176,78 @@ export class Task implements ITask {
     }
 }
 
+export class Tasks extends EventEmitter<TaskSourceEvent> {
+    private _tasks: Task[] = [];
+    constructor() {
+        super();
+    }
+    
+    getTask(): Task | undefined {
+        return this._tasks.find(t => t.status === 'queued');
+    }
+
+    getTaskByClineId(clineId: string): Task | undefined {
+        return this._tasks.find(t => t.clineId === clineId);
+    }
+
+    get queued(): Task[] {
+        return this._tasks.filter(t => t.status === 'queued');
+    }
+
+    get running(): Task | undefined {
+        return this._tasks.find(t => t.status === 'running');
+    }
+
+    get completed(): Task[] {
+        return this._tasks.filter(t => t.status === 'completed');
+    }
+
+    get prepared(): Task[] {
+        return this._tasks.filter(t => t.status === 'prepared');
+    }
+
+    push(task: Task) {
+        this._tasks.push(task);
+        this.emit('update');
+    }
+
+    move(taskIds: string[], target: { taskId: string, position: 'before' | 'after' }) {
+        const selectedTasksSet = new Set(taskIds);
+        const targetIndex = this._tasks.findIndex(t => t.id === target.taskId);
+
+        if (targetIndex === -1) {
+            throw new Error('Target task not found');
+        }
+
+        const newTasks: Task[] = [];
+        for (const [i, task] of this._tasks.entries()) {
+            if (selectedTasksSet.has(task.id)) {
+                continue;
+            }
+            if (i === targetIndex && target.position === 'before') {
+                newTasks.push(...taskIds.map(t => this._tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
+            }
+            newTasks.push(task);
+            if (i === targetIndex && target.position === 'after') {
+                newTasks.push(...taskIds.map(t => this._tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
+            }
+        }
+
+        this._tasks.length = 0;  // clear the array
+        this._tasks.push(...newTasks);
+        this.emit('update');
+    }
+
+    [Symbol.iterator]() {
+        return this._tasks[Symbol.iterator]();
+    }
+}
+
+type TaskSourceEvent = {
+    update: [];
+}
+
+
 export class RooSpawnStatus implements RendererInitializationData {
     public mime_type = 'application/x-roospawn-status';
     constructor(public tasks: ITask[], public workerActive: boolean) {}
@@ -202,42 +264,27 @@ export class RooSpawn {
         onresume: undefined,
     };
 
-    _tasks_updated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-    tasks_updated: vscode.Event<void> = this._tasks_updated.event;
+    private rendererMessaging: vscode.NotebookRendererMessaging;
 
     currentHookRun?: HookRun;
 
-    worker: Worker;
+    private worker: Worker;
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
         readonly outputChannel: vscode.OutputChannel,
         readonly clineController: IClineController,
-        public readonly tasks: Task[]
+        public readonly tasks: Tasks,
     ) {
-        this.worker = new Worker(
-            this.tasks,
-            () => this.getFirstQueuedTask(),
-            () => this.schedule_ui_repaint(),
-            this.clineController,
-            this.outputChannel,
-        );
+        this.worker = new Worker(this.tasks, this.clineController, this.outputChannel);
+        this.tasks.on('update', () => this.schedule_ui_repaint());
         this.worker.run();
         this.outputChannel.appendLine('RooSpawn initialized');
         roospawn = this;
 
         // Set up renderer messaging
-        const messageChannel = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
-        this.extensionContext.subscriptions.push(
-            this.tasks_updated(async () => {
-                await messageChannel.postMessage({
-                    type: 'statusUpdated',
-                    tasks: [...this.tasks],
-                    workerActive: this.worker.active,
-                } as MessageToRenderer);
-            })
-        );
-        messageChannel.onDidReceiveMessage(evt => {
+        this.rendererMessaging = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
+        this.rendererMessaging.onDidReceiveMessage(evt => {
             const msg = evt.message as MessageFromRenderer;
 
             switch (msg.type) {
@@ -289,23 +336,17 @@ export class RooSpawn {
         });
     }
 
-    private getFirstQueuedTask(): Task | undefined {
-        return this.tasks.find(t => t.status === 'queued');
-    }
-
-    schedule_ui_repaint() {
-        setTimeout(() => {
-            // quick fix for some race condition with sending notebook outputs
-            this._tasks_updated.fire();
-        }, 100);
-        setTimeout(() => {
-            // quick fix for some race condition with sending notebook outputs
-            this._tasks_updated.fire();
-        }, 500);
-        setTimeout(() => {
-            // quick fix for some race condition with sending notebook outputs
-            this._tasks_updated.fire();
-        }, 1500);
+    async schedule_ui_repaint() {
+        for (const timeout of [100, 400, 1000]) {
+            await new Promise<void>(resolve => setTimeout(async () => {
+                await this.rendererMessaging.postMessage({
+                    type: 'statusUpdated',
+                    tasks: [...this.tasks],
+                    workerActive: this.worker.active,
+                } as MessageToRenderer);
+                resolve();
+            }, timeout));
+        }
     }
 
     createTasks(prompts: string[], mode: string, hooks?: Hooks): Task[] {
@@ -335,24 +376,23 @@ export class RooSpawn {
     }
 
     queued_tasks(): Task[] {
-        return this.tasks.filter(t => t.status === 'queued');
+        return this.tasks.queued;
     }
 
     running_task(): Task | undefined {
-        return this.tasks.find(t => t.status === 'running');
+        return this.tasks.running;
     }
 
     completed_tasks(): Task[] {
-        return this.tasks.filter(t => t.status === 'completed');
+        return this.tasks.completed;
     }
 
     prepared_tasks(): Task[] {
-        return this.tasks.filter(t => t.status === 'prepared');
+        return this.tasks.prepared;
     }
 
     resumeWorker() {
         this.worker.active = true;
-        this.worker.wakeup?.();
         this.schedule_ui_repaint();
     }
 
@@ -452,30 +492,7 @@ export class RooSpawn {
     }
 
     moveSelectedTasks(selectedTasks: string[], targetTask: string, position: 'before' | 'after') {
-        const selectedTasksSet = new Set(selectedTasks);
-        const targetIndex = this.tasks.findIndex(t => t.id === targetTask);
-
-        if (targetIndex === -1) {
-            throw new Error('Target task not found');
-        }
-
-        const newTasks: Task[] = [];
-        for (const [i, task] of this.tasks.entries()) {
-            if (selectedTasksSet.has(task.id)) {
-                continue;
-            }
-            if (i === targetIndex && position === 'before') {
-                newTasks.push(...selectedTasks.map(t => this.tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
-            }
-            newTasks.push(task);
-            if (i === targetIndex && position === 'after') {
-                newTasks.push(...selectedTasks.map(t => this.tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
-            }
-        }
-
-        this.tasks.length = 0;  // clear the array
-        this.tasks.push(...newTasks);
-        this.schedule_ui_repaint();
+        this.tasks.move(selectedTasks, { taskId: targetTask, position });
     }
 }
 
