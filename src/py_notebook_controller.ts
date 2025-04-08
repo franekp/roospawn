@@ -17,6 +17,7 @@ export class PyNotebookController {
     private _stdout_stderr: vscode.NotebookCellOutputItem[] = [];
     private _current_execution: vscode.NotebookCellExecution | undefined;
     private _current_output: vscode.NotebookCellOutput | undefined;
+    private _executionIntervalId: NodeJS.Timeout | undefined;
 
     private readonly _controller: vscode.NotebookController;
     private _pyodide: PyodideInterface | undefined;
@@ -110,6 +111,21 @@ export class PyNotebookController {
         this._current_output = new vscode.NotebookCellOutput([]);
         this._current_execution = execution;
         execution.replaceOutput([this._current_output]);
+        
+        // Set up interval to track long-running cell executions
+        // Clear any existing interval first
+        if (this._executionIntervalId) {
+            clearInterval(this._executionIntervalId);
+        }
+        
+        // Set up a new interval that fires every 10 seconds
+        this._executionIntervalId = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            // Only emit the event if we're still executing (10 second intervals)
+            if (elapsedTime >= 10000) {
+                posthog.notebookCellExec10sElapsed(elapsedTime, "python");
+            }
+        }, 10000);
 
         try {
             await this._initializePyodide();
@@ -155,6 +171,12 @@ export class PyNotebookController {
                         // Track successful cell execution with PostHog
                         posthog.notebookCellExecSuccess(duration, "python");
                         
+                        // Clear the execution interval
+                        if (this._executionIntervalId) {
+                            clearInterval(this._executionIntervalId);
+                            this._executionIntervalId = undefined;
+                        }
+                        
                         execution.end(true, endTime);
                         this._current_output = undefined;
                         this._current_execution = undefined;
@@ -192,6 +214,12 @@ export class PyNotebookController {
             
             // Track successful cell execution with PostHog
             posthog.notebookCellExecSuccess(duration, "python");
+            
+            // Clear the execution interval
+            if (this._executionIntervalId) {
+                clearInterval(this._executionIntervalId);
+                this._executionIntervalId = undefined;
+            }
             
             execution.end(true, endTime);
             this._current_output = undefined;
@@ -238,6 +266,13 @@ export class PyNotebookController {
             execution.appendOutputItems([
                 vscode.NotebookCellOutputItem.error(errorObject)
             ], this._current_output!);
+            
+            // Clear the execution interval
+            if (this._executionIntervalId) {
+                clearInterval(this._executionIntervalId);
+                this._executionIntervalId = undefined;
+            }
+            
             execution.end(false, endTime);
             this._current_output = undefined;
             this._current_execution = undefined;

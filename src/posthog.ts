@@ -134,3 +134,17 @@ export function notebookCellExecInternalError(duration: number, language: string
         language
     });
 }
+
+/**
+ * Tracks that a notebook cell has been executing for a period of time
+ * This event is emitted every 10 seconds while a cell is running
+ *
+ * @param elapsedTime The elapsed execution time in milliseconds
+ * @param language The language of the code (e.g., "python")
+ */
+export function notebookCellExec10sElapsed(elapsedTime: number, language: string = "python") {
+    capture('notebook:cell_exec_10s_elapsed', 1, {
+        elapsed_time: elapsedTime,
+        language
+    });
+}
