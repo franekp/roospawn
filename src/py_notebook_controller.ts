@@ -98,7 +98,8 @@ export class PyNotebookController {
     private async _doExecution(cell: vscode.NotebookCell): Promise<void> {
         const execution = this._controller.createNotebookCellExecution(cell);
         execution.executionOrder = ++this._executionOrder;
-        execution.start(Date.now());
+        const startTime = Date.now();
+        execution.start(startTime);
 
         this._current_output = new vscode.NotebookCellOutput([]);
         this._current_execution = execution;
@@ -138,7 +139,13 @@ export class PyNotebookController {
                                 vscode.NotebookCellOutputItem.text(jsResult.get('html').toString(), 'text/html')
                             ])
                         ]);
-                        execution.end(true, Date.now());
+                        const endTime = Date.now();
+                        const duration = endTime - startTime;
+                        
+                        // Track successful cell execution with PostHog
+                        posthog.notebookCellExecSuccess(duration, "python");
+                        
+                        execution.end(true, endTime);
                         this._current_output = undefined;
                         this._current_execution = undefined;
                         return;
@@ -170,7 +177,13 @@ export class PyNotebookController {
                 ], this._current_output!);
             }
 
-            execution.end(true, Date.now());
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // Track successful cell execution with PostHog
+            posthog.notebookCellExecSuccess(duration, "python");
+            
+            execution.end(true, endTime);
             this._current_output = undefined;
             this._current_execution = undefined;
         } catch (error) {

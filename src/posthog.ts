@@ -94,3 +94,16 @@ export function notebookCellExecStart(code: string, language: string = "python")
         language
     });
 }
+
+/**
+ * Tracks the successful completion of a notebook cell execution
+ *
+ * @param duration The execution duration in milliseconds
+ * @param language The language of the code (e.g., "python")
+ */
+export function notebookCellExecSuccess(duration: number, language: string = "python") {
+    capture('notebook:cell_exec_success', 1, {
+        duration,
+        language
+    });
+}
