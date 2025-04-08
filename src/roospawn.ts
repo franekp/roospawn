@@ -162,7 +162,7 @@ export class Task implements ITask {
         }
 
         if (command !== undefined) {
-            const cmdRun = await rsp.currentHookRun!.command(command);
+            const cmdRun = await rsp.currentHookRun!.command(command, { cwd: rsp.workingDirectory, timeout: 300_000 });
             if (cmdRun.exitCode !== 0) {
                 hookRun.failed = true;
             }
@@ -269,6 +269,7 @@ export class RooSpawn {
     currentHookRun?: HookRun;
 
     private worker: Worker;
+    public workingDirectory: string = process.cwd();
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
@@ -407,7 +408,7 @@ export class RooSpawn {
             throw new Error("Cannot execute shell commands outside hook context");
         }
 
-        const cmdRun = await currentHookRun.command(command);
+        const cmdRun = await currentHookRun.command(command, { cwd: this.workingDirectory, timeout: 300_000 });
         this.outputChannel.append('--------\n' + cmdRun.toString() + '\n--------\n');
         return cmdRun;
     }

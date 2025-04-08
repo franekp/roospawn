@@ -64,6 +64,8 @@ class Hooks:
 
         return Hooks(api.createHooks(onstart, oncomplete, onpause, onresume))
 
+def working_directory(path: str):
+    api.workingDirectory = path
 
 def onstart(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.onstart is not None:

@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { exec, ExecException, ExecOptions } from "child_process";
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 
@@ -15,18 +15,15 @@ export class HookRun {
         this.timestamp = Date.now();
     }
 
-    command(command: string): Promise<CommandRun> {
+    command(command: string, options: ExecOptions): Promise<CommandRun> {
         return new Promise(resolve => {
             const started = Date.now();
-            exec(
-                command,
-                { timeout: 300*1000 },
-                (error, stdout, stderr) => {
-                    const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, Date.now());
-                    this.commands.push(commandRun);
-                    resolve(commandRun);
-                },
-            );
+            const callback = (error: ExecException | null, stdout: string, stderr: string) => {
+                const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, Date.now());
+                this.commands.push(commandRun);
+                resolve(commandRun);
+            };
+            exec(command, options, callback);
         });
     }
 
