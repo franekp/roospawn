@@ -6,6 +6,7 @@ import * as pyodide from 'pyodide';
 import * as path from 'path';
 import { RooSpawn, RooSpawnStatus } from './roospawn';
 import { RendererInitializationData } from './shared';
+import * as posthog from './posthog';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';
@@ -94,7 +95,6 @@ export class PyNotebookController {
             await this._doExecution(cell);
         }
     }
-
     private async _doExecution(cell: vscode.NotebookCell): Promise<void> {
         const execution = this._controller.createNotebookCellExecution(cell);
         execution.executionOrder = ++this._executionOrder;
@@ -112,6 +112,9 @@ export class PyNotebookController {
             }
 
             const code = cell.document.getText();
+            
+            // Track cell execution start with PostHog
+            posthog.notebookCellExecStart(code, "python");
 
             this._pyodide.loadPackagesFromImports(code);
 

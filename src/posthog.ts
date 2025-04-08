@@ -60,3 +60,37 @@ export function extensionActivated() {
 export function extensionDeactivating() {
     capture('extension:deactivating', 1, {});
 }
+
+/**
+ * Tracks the start of a notebook cell execution with code metrics
+ *
+ * @param code The code being executed
+ * @param language The language of the code (e.g., "python")
+ */
+export function notebookCellExecStart(code: string, language: string = "python") {
+    // Count various code metrics
+    const num_lines = code.split('\n').length;
+    const num_chars = code.length;
+    
+    // Count language constructs
+    const def_cnt = (code.match(/\bdef\s+\w+/g) || []).length;
+    const class_cnt = (code.match(/\bclass\s+\w+/g) || []).length;
+    const if_cnt = (code.match(/\bif\s+/g) || []).length;
+    const for_cnt = (code.match(/\bfor\s+/g) || []).length;
+    const await_cnt = (code.match(/\bawait\s+/g) || []).length;
+    const async_cnt = (code.match(/\basync\s+/g) || []).length;
+    const decor_cnt = (code.match(/@\w+/g) || []).length;
+    
+    capture('notebook:cell_exec_start', 1, {
+        num_lines,
+        num_chars,
+        def_cnt,
+        class_cnt,
+        if_cnt,
+        for_cnt,
+        await_cnt,
+        async_cnt,
+        decor_cnt,
+        language
+    });
+}
