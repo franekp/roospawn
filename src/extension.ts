@@ -4,11 +4,14 @@ import { PyNotebookController } from './py_notebook_controller';
 import { IClineController } from './cline_controller';
 import { ClineController as ClineController384 } from './controller-3.8.4/cline_controller';
 import { ClineController as ClineController386 } from './controller-3.8.6-dev/cline_controller';
+import * as posthog from './posthog';
 import { RooSpawn, Task, Tasks } from './roospawn';
 
 export { RooSpawn, Task };
 
 export async function activate(context: vscode.ExtensionContext): Promise<RooSpawn> {
+    await posthog.activate(context);
+    
     const outputChannel = vscode.window.createOutputChannel('RooSpawn');
     outputChannel.appendLine('RooSpawn extension is now running!');
 
@@ -51,7 +54,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
 
     context.subscriptions.push(disposable);
 
+    posthog.extensionActivated();
     return rooSpawn;
 }
 
-export function deactivate() {}
+export async function deactivate() {
+    posthog.extensionDeactivating();
+    await posthog.deactivate();
+}

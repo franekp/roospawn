@@ -1671,7 +1671,7 @@ asynckit@^0.4.0:
   resolved "https://registry.yarnpkg.com/asynckit/-/asynckit-0.4.0.tgz#c79ed97f7f34cb8f2ba1bc9790bcc366474b4b79"
   integrity sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==
 
-axios@^1.8.2:
+axios@^1.7.4:
   version "1.8.4"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.8.4.tgz#78990bb4bc63d2cae072952d374835950a82f447"
   integrity sha512-eBSYY4Y68NNlHbHBMdeDmKNtDgXWhQsJcGqzO3iLUM0GraQFSS9cVgPX5I9b3lbdFKyYoAEGAZF1DwhTaljNAw==
@@ -3387,12 +3387,12 @@ pkg-dir@^4.2.0:
   dependencies:
     find-up "^4.0.0"
 
-posthog-node@^4.11.2:
-  version "4.11.2"
-  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-4.11.2.tgz#8ed96d90fc85314c80568a307cc249b763998a86"
-  integrity sha512-zzXCzatMyXcDdvcSJFoCV1lA+5LkT2f7dt1vj6I4S6QGUWlRMMu8krApseUY4/E8m2rhQlmR8BZU/2xXcgS7XQ==
+posthog-node@4.10.1:
+  version "4.10.1"
+  resolved "https://registry.yarnpkg.com/posthog-node/-/posthog-node-4.10.1.tgz#65dde49c5ae2092b59d9a32f5c217f03470fdf57"
+  integrity sha512-rEzVszfaOkUFTjEabDcRLJNRqMwTOeU1WpqKgQEDV3x82O4ODifkvkoCERaPxl/ossi1NtqKXBOZ+XnhQ19pNQ==
   dependencies:
-    axios "^1.8.2"
+    axios "^1.7.4"
 
 prelude-ls@^1.2.1:
   version "1.2.1"
@@ -4002,6 +4002,11 @@ uuid@^10.0.0:
   version "10.0.0"
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-10.0.0.tgz#5a95aa454e6e002725c79055fd42aaba30ca6294"
   integrity sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==
+
+uuidv7@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/uuidv7/-/uuidv7-1.0.2.tgz#ac63630959c55683b88555e9cc510d2d753b1b24"
+  integrity sha512-8JQkH4ooXnm1JCIhqTMbtmdnYEn6oKukBxHn1Ic9878jMkL7daTI7anTExfY18VRCX7tcdn5quzvCb6EWrR8PA==
 
 v8-to-istanbul@^9.0.0:
   version "9.3.0"
