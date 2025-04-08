@@ -197,11 +197,18 @@ export class PyNotebookController {
                     || line.includes('node:internal/'))
             ).join('\n');
 
+            // Calculate execution duration
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            // Track cell execution exception with PostHog
+            posthog.notebookCellExecException(duration, "python");
+
             // Handle execution error
             execution.appendOutputItems([
                 vscode.NotebookCellOutputItem.error(errorObject)
             ], this._current_output!);
-            execution.end(false, Date.now());
+            execution.end(false, endTime);
             this._current_output = undefined;
             this._current_execution = undefined;
         }

@@ -107,3 +107,16 @@ export function notebookCellExecSuccess(duration: number, language: string = "py
         language
     });
 }
+
+/**
+ * Tracks a notebook cell execution that resulted in an exception
+ *
+ * @param duration The execution duration in milliseconds
+ * @param language The language of the code (e.g., "python")
+ */
+export function notebookCellExecException(duration: number, language: string = "python") {
+    capture('notebook:cell_exec_exception', 1, {
+        duration,
+        language
+    });
+}
