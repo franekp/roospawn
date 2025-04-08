@@ -13,15 +13,12 @@ export async function activate(context: vscode.ExtensionContext) {
     }
 
     posthog = new PostHog('phc_JDmKFHRApOzVBnp2j5Jor7KWFyMRzHdg2QmlGd1fUP8', { host: 'https://eu.i.posthog.com' });
-    console.log(posthog);
 
     distinctId = context.globalState.get('rooSpawn.analytics.userId');
     if (!distinctId) {
         distinctId = uuidv7();
         await context.globalState.update('rooSpawn.analytics.userId', distinctId);
     }
-
-    console.log(distinctId);
 
     rooSpawnVersion = context.extension.packageJSON.version;
     const rooCodeExtension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
@@ -39,12 +36,9 @@ function capture(event: string, version: number, data: Record<string, any>) {
 
     let properties: Record<string, any> = {
         $process_person_profile: false,
+        event_v: version,
         ...data,
     };
-
-    if (version !== 1) {
-        properties['event_v'] = version;
-    }
 
     if (rooSpawnVersion !== undefined) {
         properties['roospawn_v'] = rooSpawnVersion;
@@ -54,11 +48,7 @@ function capture(event: string, version: number, data: Record<string, any>) {
         properties['roocode_v'] = rooCodeVersion;
     }
 
-    posthog.capture({
-        distinctId,
-        event,
-        properties,
-    });
+    posthog.capture({ distinctId, event, properties });
 }
 
 // Events
