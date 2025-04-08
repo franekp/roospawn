@@ -43,6 +43,7 @@ export class PyNotebookController {
             return;
         }
 
+        const initStartTime = Date.now();
         try {
             const pyodidePath = path.join(this.extensionContext.extensionPath, 'resources', 'pyodide');
 
@@ -82,6 +83,11 @@ export class PyNotebookController {
             this._outputChannel.appendLine('Pyodide initialized successfully');
         } catch (error) {
             this._outputChannel.appendLine(`Failed to initialize Pyodide: ${JSON.stringify(error)}`);
+            
+            // Track internal error with PostHog
+            const initDuration = Date.now() - initStartTime;
+            posthog.notebookCellExecInternalError(initDuration, "python");
+            
             throw error;
         }
     }
@@ -109,6 +115,10 @@ export class PyNotebookController {
             await this._initializePyodide();
 
             if (!this._pyodide) {
+                // Track internal error with PostHog
+                const duration = Date.now() - startTime;
+                posthog.notebookCellExecInternalError(duration, "python");
+                
                 throw new Error('Failed to initialize Pyodide');
             }
 
@@ -201,8 +211,28 @@ export class PyNotebookController {
             const endTime = Date.now();
             const duration = endTime - startTime;
             
-            // Track cell execution exception with PostHog
-            posthog.notebookCellExecException(duration, "python");
+            // Determine if this is an internal error or a Python exception
+            // We check the error message for common Python exception patterns
+            const isPythonException = errorObject.message && (
+                errorObject.message.includes('Python exception') ||
+                errorObject.message.includes('SyntaxError') ||
+                errorObject.message.includes('NameError') ||
+                errorObject.message.includes('TypeError') ||
+                errorObject.message.includes('ValueError') ||
+                errorObject.message.includes('IndexError') ||
+                errorObject.message.includes('KeyError') ||
+                errorObject.message.includes('AttributeError') ||
+                errorObject.message.includes('ImportError') ||
+                errorObject.message.includes('ModuleNotFoundError')
+            );
+            
+            if (isPythonException) {
+                // Track Python exception with PostHog
+                posthog.notebookCellExecException(duration, "python");
+            } else {
+                // Track internal error with PostHog
+                posthog.notebookCellExecInternalError(duration, "python");
+            }
 
             // Handle execution error
             execution.appendOutputItems([

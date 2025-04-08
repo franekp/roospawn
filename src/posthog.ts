@@ -120,3 +120,17 @@ export function notebookCellExecException(duration: number, language: string = "
         language
     });
 }
+
+/**
+ * Tracks an internal error that occurred during notebook cell execution
+ * This is for errors in the extension itself, not in the user's code
+ *
+ * @param duration The execution duration in milliseconds
+ * @param language The language of the code (e.g., "python")
+ */
+export function notebookCellExecInternalError(duration: number, language: string = "python") {
+    capture('notebook:cell_exec_internal_error', 1, {
+        duration,
+        language
+    });
+}
