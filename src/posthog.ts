@@ -65,9 +65,8 @@ export function extensionDeactivating() {
  * Tracks the start of a notebook cell execution with code metrics
  *
  * @param code The code being executed
- * @param language The language of the code (e.g., "python")
  */
-export function notebookCellExecStart(code: string, language: string = "python") {
+export function notebookCellExecStart(code: string) {
     // Count various code metrics
     const num_lines = code.split('\n').length;
     const num_chars = code.length;
@@ -91,7 +90,7 @@ export function notebookCellExecStart(code: string, language: string = "python")
         await_cnt,
         async_cnt,
         decor_cnt,
-        language
+        language: "python"
     });
 }
 
@@ -99,12 +98,11 @@ export function notebookCellExecStart(code: string, language: string = "python")
  * Tracks the successful completion of a notebook cell execution
  *
  * @param duration The execution duration in milliseconds
- * @param language The language of the code (e.g., "python")
  */
-export function notebookCellExecSuccess(duration: number, language: string = "python") {
+export function notebookCellExecSuccess(duration: number) {
     capture('notebook:cell_exec_success', 1, {
         duration,
-        language
+        language: "python"
     });
 }
 
@@ -112,12 +110,11 @@ export function notebookCellExecSuccess(duration: number, language: string = "py
  * Tracks a notebook cell execution that resulted in an exception
  *
  * @param duration The execution duration in milliseconds
- * @param language The language of the code (e.g., "python")
  */
-export function notebookCellExecException(duration: number, language: string = "python") {
+export function notebookCellExecException(duration: number) {
     capture('notebook:cell_exec_exception', 1, {
         duration,
-        language
+        language: "python"
     });
 }
 
@@ -126,12 +123,11 @@ export function notebookCellExecException(duration: number, language: string = "
  * This is for errors in the extension itself, not in the user's code
  *
  * @param duration The execution duration in milliseconds
- * @param language The language of the code (e.g., "python")
  */
-export function notebookCellExecInternalError(duration: number, language: string = "python") {
+export function notebookCellExecInternalError(duration: number) {
     capture('notebook:cell_exec_internal_error', 1, {
         duration,
-        language
+        language: "python"
     });
 }
 
@@ -140,12 +136,11 @@ export function notebookCellExecInternalError(duration: number, language: string
  * This event is emitted every 10 seconds while a cell is running
  *
  * @param elapsedTime The elapsed execution time in milliseconds
- * @param language The language of the code (e.g., "python")
  */
-export function notebookCellExec10sElapsed(elapsedTime: number, language: string = "python") {
+export function notebookCellExec10sElapsed(elapsedTime: number) {
     capture('notebook:cell_exec_10s_elapsed', 1, {
         elapsed_time: elapsedTime,
-        language
+        language: "python"
     });
 }
 

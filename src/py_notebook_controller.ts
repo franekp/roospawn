@@ -134,12 +134,12 @@ export class PyNotebookController {
         this._current_output = output;
         this._current_execution = execution;
         
-        let intervalId = setInterval(() => posthog.notebookCellExec10sElapsed(Date.now() - startTime, "python"), 10_000);
+        let intervalId = setInterval(() => posthog.notebookCellExec10sElapsed(Date.now() - startTime), 10_000);
 
         try {
             const code = cell.document.getText();
             
-            posthog.notebookCellExecStart(code, "python");
+            posthog.notebookCellExecStart(code);
 
             pyodide.loadPackagesFromImports(code);
 
@@ -151,7 +151,7 @@ export class PyNotebookController {
             const endTime = Date.now();
             execution.end(true, endTime);
             
-            posthog.notebookCellExecSuccess(endTime - startTime, "python");
+            posthog.notebookCellExecSuccess(endTime - startTime);
         } catch (error) {
             this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
 
@@ -167,9 +167,9 @@ export class PyNotebookController {
 
             const isPythonException = errorObject instanceof pyodide.ffi.PythonError;
             if (isPythonException) {
-                posthog.notebookCellExecException(endTime - startTime, "python");
+                posthog.notebookCellExecException(endTime - startTime);
             } else {
-                posthog.notebookCellExecInternalError(endTime - startTime, "python");
+                posthog.notebookCellExecInternalError(endTime - startTime);
             }
         } finally {
             this._current_output = undefined;
