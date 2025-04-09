@@ -60,3 +60,97 @@ export function extensionActivated() {
 export function extensionDeactivating() {
     capture('extension:deactivating', 1, {});
 }
+
+/**
+ * Tracks the start of a notebook cell execution with code metrics
+ *
+ * @param code The code being executed
+ */
+export function notebookCellExecStart(code: string) {
+    // Count various code metrics
+    const num_lines = code.split('\n').length;
+    const num_chars = code.length;
+    
+    // Count language constructs
+    const def_cnt = (code.match(/\bdef\s+\w+/g) || []).length;
+    const class_cnt = (code.match(/\bclass\s+\w+/g) || []).length;
+    const if_cnt = (code.match(/\bif\s+/g) || []).length;
+    const for_cnt = (code.match(/\bfor\s+/g) || []).length;
+    const await_cnt = (code.match(/\bawait\s+/g) || []).length;
+    const async_cnt = (code.match(/\basync\s+/g) || []).length;
+    const decor_cnt = (code.match(/@\w+/g) || []).length;
+    
+    capture('notebook:cell_exec_start', 1, {
+        num_lines,
+        num_chars,
+        def_cnt,
+        class_cnt,
+        if_cnt,
+        for_cnt,
+        await_cnt,
+        async_cnt,
+        decor_cnt,
+        language: "python"
+    });
+}
+
+/**
+ * Tracks the successful completion of a notebook cell execution
+ *
+ * @param duration The execution duration in milliseconds
+ */
+export function notebookCellExecSuccess(duration: number) {
+    capture('notebook:cell_exec_success', 1, {
+        duration,
+        language: "python"
+    });
+}
+
+/**
+ * Tracks a notebook cell execution that resulted in an exception
+ *
+ * @param duration The execution duration in milliseconds
+ */
+export function notebookCellExecException(duration: number) {
+    capture('notebook:cell_exec_exception', 1, {
+        duration,
+        language: "python"
+    });
+}
+
+/**
+ * Tracks an internal error that occurred during notebook cell execution
+ * This is for errors in the extension itself, not in the user's code
+ *
+ * @param duration The execution duration in milliseconds
+ */
+export function notebookCellExecInternalError(duration: number) {
+    capture('notebook:cell_exec_internal_error', 1, {
+        duration,
+        language: "python"
+    });
+}
+
+/**
+ * Tracks that a notebook cell has been executing for a period of time
+ * This event is emitted every 10 seconds while a cell is running
+ *
+ * @param elapsedTime The elapsed execution time in milliseconds
+ */
+export function notebookCellExec10sElapsed(elapsedTime: number) {
+    capture('notebook:cell_exec_10s_elapsed', 1, {
+        elapsed_time: elapsedTime,
+        language: "python"
+    });
+}
+
+/**
+ * Tracks when Pyodide loading fails
+ *
+ * @param duration The duration of the loading attempt in milliseconds before it failed
+ */
+export function notebookPyodideLoadingFailed(duration: number) {
+    capture('notebook:pyodide_loading_failed', 1, {
+        duration
+    });
+}
