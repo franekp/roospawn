@@ -1,12 +1,12 @@
-import * as vscode from 'vscode';
-import process from 'process';
 import * as fs from 'fs/promises';
-import { loadPyodide, type PyodideInterface } from 'pyodide';
-import * as pyodide from 'pyodide';
 import * as path from 'path';
+import process from 'process';
+import { loadPyodide, type PyodideInterface } from 'pyodide';
+import * as vscode from 'vscode';
+import { Channel } from './async_utils';
+import * as posthog from './posthog';
 import { RooSpawn, RooSpawnStatus } from './roospawn';
 import { RendererInitializationData } from './shared';
-import * as posthog from './posthog';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';
@@ -14,14 +14,12 @@ export class PyNotebookController {
     readonly label = 'RooSpawn Python';
     readonly supportedLanguages = ['python'];
 
-    private _stdout_stderr: vscode.NotebookCellOutputItem[] = [];
     private _current_execution: vscode.NotebookCellExecution | undefined;
     private _current_output: vscode.NotebookCellOutput | undefined;
-    private _executionIntervalId: NodeJS.Timeout | undefined;
 
     private readonly _controller: vscode.NotebookController;
-    private _pyodide: PyodideInterface | undefined;
     private _executionOrder = 0;
+    private _executionRequestChannel: Channel<CellExecutionRequest>;
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,
@@ -37,13 +35,46 @@ export class PyNotebookController {
         this._controller.supportedLanguages = this.supportedLanguages;
         this._controller.supportsExecutionOrder = true;
         this._controller.executeHandler = this._execute.bind(this);
+
+        const { rx, tx } = Channel.create<CellExecutionRequest>();
+        this._executionRequestChannel = tx;
+        this._worker(rx);
+    }
+
+    private _execute(
+        cells: vscode.NotebookCell[],
+        _notebook: vscode.NotebookDocument,
+        _controller: vscode.NotebookController
+    ): Promise<void> {
+        let resolveCallback: (() => void) | undefined = undefined;
+        const allExecutedPromise = new Promise<void>(resolve => { resolveCallback = resolve; });
+
+        // TODO: we might store which cells are already enqueued, and only enqueue a cell if it's not already enqueued
+        cells.forEach((cell, index) => {
+            const callback = (index === cells.length - 1) ? resolveCallback! : () => {};
+            this._executionRequestChannel.send({ cell, callback });
+        });
+        
+        return allExecutedPromise;
+    }
+
+    private async _worker(rx: AsyncGenerator<CellExecutionRequest, void, void>) {
+        const notificationOptions: vscode.ProgressOptions = {
+            title: 'Initializing RooSpawn kernel...',
+            location: vscode.ProgressLocation.Notification,
+            cancellable: false,
+        };
+        const pyodide = await vscode.window.withProgress(notificationOptions, () => this._initializePyodide());
+
+        for await (const request of rx) {
+            const { cell, callback } = request;
+
+            await this._executeCell(cell, pyodide);
+            callback();
+        }
     }
 
     private async _initializePyodide() {
-        if (this._pyodide) {
-            return;
-        }
-
         const initStartTime = Date.now();
         try {
             const pyodidePath = path.join(this.extensionContext.extensionPath, 'resources', 'pyodide');
@@ -51,11 +82,10 @@ export class PyNotebookController {
             delete process.env.PYTHONHOME;
             delete process.env.PYTHONPATH;
 
-            this._pyodide = await loadPyodide({
+            const pyodide = await loadPyodide({
                 indexURL: pyodidePath,
                 stdout: (text) => {
                     this._outputChannel.appendLine(`[Pyodide stdout]: ${text}`);
-                    this._stdout_stderr.push(vscode.NotebookCellOutputItem.stdout(text));
                     if (this._current_execution) {
                         this._current_execution.appendOutputItems([
                             vscode.NotebookCellOutputItem.stdout(text + '\n')
@@ -64,7 +94,6 @@ export class PyNotebookController {
                 },
                 stderr: (text) => {
                     this._outputChannel.appendLine(`[Pyodide stderr]: ${text}`);
-                    this._stdout_stderr.push(vscode.NotebookCellOutputItem.stderr(text));
                     if (this._current_execution) {
                         this._current_execution.appendOutputItems([
                             vscode.NotebookCellOutputItem.stderr(text + '\n')
@@ -73,213 +102,137 @@ export class PyNotebookController {
                 }
             });
 
-            this._pyodide.registerJsModule('_roospawn', this._rooSpawn);
+            pyodide.registerJsModule('_roospawn', this._rooSpawn);
 
             const roospawn_py_path = path.join(this.extensionContext.extensionPath, 'resources', 'roospawn.py');
             const roospawn_py = await fs.readFile(roospawn_py_path, 'utf8');
 
             // TODO: shouldn't we write simply to 'roospawn.py'?
-            this._pyodide.FS.writeFile('/home/pyodide/roospawn.py', roospawn_py);
+            pyodide.FS.writeFile('/home/pyodide/roospawn.py', roospawn_py);
 
             this._outputChannel.appendLine('Pyodide initialized successfully');
+
+            return pyodide;
         } catch (error) {
             this._outputChannel.appendLine(`Failed to initialize Pyodide: ${JSON.stringify(error)}`);
-            
-            // Track internal error with PostHog
-            const initDuration = Date.now() - initStartTime;
-            posthog.notebookCellExecInternalError(initDuration, "python");
+            posthog.notebookPyodideLoadingFailed(Date.now() - initStartTime);
+            vscode.window.showErrorMessage('Failed to initialize RooSpawn Python kernel.');
             
             throw error;
         }
     }
 
-    private async _execute(
-        cells: vscode.NotebookCell[],
-        _notebook: vscode.NotebookDocument,
-        _controller: vscode.NotebookController
-    ): Promise<void> {
-        for (const cell of cells) {
-            await this._doExecution(cell);
-        }
-    }
-    private async _doExecution(cell: vscode.NotebookCell): Promise<void> {
+    private async _executeCell(cell: vscode.NotebookCell, pyodide: PyodideInterface): Promise<void> {
         const execution = this._controller.createNotebookCellExecution(cell);
         execution.executionOrder = ++this._executionOrder;
         const startTime = Date.now();
         execution.start(startTime);
 
-        this._current_output = new vscode.NotebookCellOutput([]);
+        const output = new vscode.NotebookCellOutput([]);
+        execution.replaceOutput([output]);
+
+        this._current_output = output;
         this._current_execution = execution;
-        execution.replaceOutput([this._current_output]);
         
-        // Set up interval to track long-running cell executions
-        // Clear any existing interval first
-        if (this._executionIntervalId) {
-            clearInterval(this._executionIntervalId);
-        }
-        
-        // Set up a new interval that fires every 10 seconds
-        this._executionIntervalId = setInterval(() => {
-            const elapsedTime = Date.now() - startTime;
-            // Only emit the event if we're still executing (10 second intervals)
-            if (elapsedTime >= 10000) {
-                posthog.notebookCellExec10sElapsed(elapsedTime, "python");
-            }
-        }, 10000);
+        let intervalId = setInterval(() => posthog.notebookCellExec10sElapsed(Date.now() - startTime, "python"), 10_000);
 
         try {
-            await this._initializePyodide();
-
-            if (!this._pyodide) {
-                // Track internal error with PostHog
-                const duration = Date.now() - startTime;
-                posthog.notebookCellExecInternalError(duration, "python");
-                
-                throw new Error('Failed to initialize Pyodide');
-            }
-
             const code = cell.document.getText();
             
-            // Track cell execution start with PostHog
             posthog.notebookCellExecStart(code, "python");
 
-            this._pyodide.loadPackagesFromImports(code);
+            pyodide.loadPackagesFromImports(code);
 
-            const result = await this._pyodide.runPythonAsync(code);
+            const result = await pyodide.runPythonAsync(code);
+            this._appendCellResultToOutput(result, pyodide, execution, output);
 
-            if (result instanceof RooSpawnStatus) {
-                const data: RendererInitializationData = { tasks: result.tasks, workerActive: result.workerActive };
-                this._current_execution.appendOutputItems(
-                    vscode.NotebookCellOutputItem.json(data, result.mime_type),
-                    this._current_output!
-                );
-            } else if (result instanceof this._pyodide.ffi.PyProxy) {
-                const isDict = this._pyodide.globals.get('isinstance')(result, this._pyodide.globals.get('dict'));
-                if (isDict) {
-                    const jsResult = result.toJs();
-                    if (jsResult instanceof Map && jsResult.has('html')) {
-                        // We must use replaceOutput because if there are existing "stdout" outputs, vscode will refuse to
-                        // render HTML output.
-                        this._current_execution.replaceOutput([
-                            new vscode.NotebookCellOutput([
-                                vscode.NotebookCellOutputItem.text(jsResult.get('html').toString(), 'text/html')
-                            ])
-                        ]);
-                        const endTime = Date.now();
-                        const duration = endTime - startTime;
-                        
-                        // Track successful cell execution with PostHog
-                        posthog.notebookCellExecSuccess(duration, "python");
-                        
-                        // Clear the execution interval
-                        if (this._executionIntervalId) {
-                            clearInterval(this._executionIntervalId);
-                            this._executionIntervalId = undefined;
-                        }
-                        
-                        execution.end(true, endTime);
-                        this._current_output = undefined;
-                        this._current_execution = undefined;
-                        return;
-                    }
-                }
-                let output: string;
-                try {
-                    output = this._pyodide.globals.get('str')(result).toString();
-                } catch {
-                    output = String(result);
-                }
-                this._current_execution.appendOutputItems([
-                    vscode.NotebookCellOutputItem.stdout(output + '\n')
-                ], this._current_output!);
-            } else {
-                let output: string;
-                if (result !== undefined) {
-                    try {
-                        output = this._pyodide.globals.get('str')(result).toString();
-                    } catch {
-                        output = String(result);
-                    }
-                } else {
-                    output = '';
-                }
-                // Create output
-                this._current_execution.appendOutputItems([
-                    vscode.NotebookCellOutputItem.stdout(output + '\n')
-                ], this._current_output!);
-            }
+            clearInterval(intervalId);
 
             const endTime = Date.now();
-            const duration = endTime - startTime;
-            
-            // Track successful cell execution with PostHog
-            posthog.notebookCellExecSuccess(duration, "python");
-            
-            // Clear the execution interval
-            if (this._executionIntervalId) {
-                clearInterval(this._executionIntervalId);
-                this._executionIntervalId = undefined;
-            }
-            
             execution.end(true, endTime);
-            this._current_output = undefined;
-            this._current_execution = undefined;
+            
+            posthog.notebookCellExecSuccess(endTime - startTime, "python");
         } catch (error) {
             this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
 
             // Convert non-Error objects to Error objects
             const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
+            filterStackFrames(errorObject);
 
-            errorObject.stack = errorObject.stack?.split('\n').filter(
-                line => !(line.includes('at wasm://wasm/') || line.includes('resources/pyodide/pyodide.asm.js')
-                    || line.includes('node:internal/'))
-            ).join('\n');
-
-            // Calculate execution duration
+            clearInterval(intervalId);
+            
             const endTime = Date.now();
-            const duration = endTime - startTime;
-            
-            // Determine if this is an internal error or a Python exception
-            // We check the error message for common Python exception patterns
-            const isPythonException = errorObject.message && (
-                errorObject.message.includes('Python exception') ||
-                errorObject.message.includes('SyntaxError') ||
-                errorObject.message.includes('NameError') ||
-                errorObject.message.includes('TypeError') ||
-                errorObject.message.includes('ValueError') ||
-                errorObject.message.includes('IndexError') ||
-                errorObject.message.includes('KeyError') ||
-                errorObject.message.includes('AttributeError') ||
-                errorObject.message.includes('ImportError') ||
-                errorObject.message.includes('ModuleNotFoundError')
-            );
-            
-            if (isPythonException) {
-                // Track Python exception with PostHog
-                posthog.notebookCellExecException(duration, "python");
-            } else {
-                // Track internal error with PostHog
-                posthog.notebookCellExecInternalError(duration, "python");
-            }
-
-            // Handle execution error
-            execution.appendOutputItems([
-                vscode.NotebookCellOutputItem.error(errorObject)
-            ], this._current_output!);
-            
-            // Clear the execution interval
-            if (this._executionIntervalId) {
-                clearInterval(this._executionIntervalId);
-                this._executionIntervalId = undefined;
-            }
-            
+            execution.appendOutputItems([vscode.NotebookCellOutputItem.error(errorObject)], output);
             execution.end(false, endTime);
+
+            const isPythonException = errorObject instanceof pyodide.ffi.PythonError;
+            if (isPythonException) {
+                posthog.notebookCellExecException(endTime - startTime, "python");
+            } else {
+                posthog.notebookCellExecInternalError(endTime - startTime, "python");
+            }
+        } finally {
             this._current_output = undefined;
             this._current_execution = undefined;
+        }
+    }
+
+    _appendCellResultToOutput(
+        result: any,
+        pyodide: PyodideInterface,
+        execution: vscode.NotebookCellExecution,
+        output: vscode.NotebookCellOutput
+    ) {
+        if (result instanceof RooSpawnStatus) {
+            const data: RendererInitializationData = { tasks: result.tasks, workerActive: result.workerActive };
+            execution.appendOutputItems(vscode.NotebookCellOutputItem.json(data, result.mime_type), output);
+            return;
+        }
+        
+        if (result instanceof pyodide.ffi.PyProxy) {
+            const isDict = pyodide.globals.get('isinstance')(result, pyodide.globals.get('dict'));
+            if (isDict) {
+                const jsResult = result.toJs();
+                if (jsResult instanceof Map && jsResult.has('html')) {
+                    // We must use replaceOutput because if there are existing "stdout" outputs, vscode will refuse to
+                    // render HTML output.
+                    execution.replaceOutput([
+                        new vscode.NotebookCellOutput([
+                            vscode.NotebookCellOutputItem.text(jsResult.get('html').toString(), 'text/html')
+                        ])
+                    ]);
+                    return;
+                }
+            }
+        }
+
+        if (result !== undefined) {       
+            let resultStr: string;
+            try {
+                resultStr = pyodide.globals.get('str')(result).toString();
+            } catch {
+                resultStr = String(result);
+            }
+            execution.appendOutputItems([vscode.NotebookCellOutputItem.stdout(resultStr + '\n')], output);
         }
     }
 
     dispose() {
         this._controller.dispose();
     }
+}
+
+interface CellExecutionRequest {
+    cell: vscode.NotebookCell;
+    callback: () => void;
+}
+
+function filterStackFrames(error: Error) {
+    error.stack = error.stack?.split('\n').filter(
+        line => !(
+            line.includes('at wasm://wasm/')
+            || line.includes('resources/pyodide/pyodide.asm.js')
+            || line.includes('node:internal/')
+        )
+    ).join('\n');
 }

@@ -148,3 +148,14 @@ export function notebookCellExec10sElapsed(elapsedTime: number, language: string
         language
     });
 }
+
+/**
+ * Tracks when Pyodide loading fails
+ *
+ * @param duration The duration of the loading attempt in milliseconds before it failed
+ */
+export function notebookPyodideLoadingFailed(duration: number) {
+    capture('notebook:pyodide_loading_failed', 1, {
+        duration
+    });
+}
