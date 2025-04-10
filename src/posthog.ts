@@ -187,3 +187,26 @@ export function hooksPySuccess(hook: string, duration: number) {
         duration
     });
 }
+
+/**
+ * Tracks when a command starts execution within a hook
+ *
+ * @param hook The hook type where the command is executed (onstart, onpause, onresume, oncomplete)
+ * @param command The command being executed
+ */
+export function hooksCmdStart(hook: string, command: string) {
+    // Count the number of commands (split by newline, semicolon)
+    const num_commands = command.split(/[\n;]/).filter(cmd => cmd.trim().length > 0).length;
+    
+    // Count the number of characters
+    const num_chars = command.length;
+    
+    // Count git commands
+    const num_git_commands = (command.match(/\bgit\s+/g) || []).length;
+    
+    capture(`hooks:${hook}_cmd_start`, 1, {
+        num_commands,
+        num_chars,
+        num_git_commands
+    });
+}

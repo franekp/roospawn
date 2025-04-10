@@ -1,4 +1,5 @@
 import { exec, ExecException, ExecOptions } from "child_process";
+import * as posthog from './posthog';
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 
@@ -16,6 +17,9 @@ export class HookRun {
     }
 
     command(command: string, options: ExecOptions): Promise<CommandRun> {
+        // Track command start in PostHog
+        posthog.hooksCmdStart(this.kind, command);
+        
         return new Promise(resolve => {
             const started = Date.now();
             const callback = (error: ExecException | null, stdout: string, stderr: string) => {
