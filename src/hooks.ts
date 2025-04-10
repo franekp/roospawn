@@ -23,8 +23,28 @@ export class HookRun {
         return new Promise(resolve => {
             const started = Date.now();
             const callback = (error: ExecException | null, stdout: string, stderr: string) => {
-                const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, Date.now());
+                const finished = Date.now();
+                const duration = finished - started;
+                const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, finished);
                 this.commands.push(commandRun);
+                
+                // Track command failure in PostHog if there was an error
+                if (error) {
+                    const num_stdout_lines = stdout.split('\n').length;
+                    const num_stderr_lines = stderr.split('\n').length;
+                    const num_stdout_bytes = Buffer.from(stdout).length;
+                    const num_stderr_bytes = Buffer.from(stderr).length;
+                    
+                    posthog.hooksCmdFailure(
+                        this.kind,
+                        duration,
+                        num_stdout_lines,
+                        num_stderr_lines,
+                        num_stdout_bytes,
+                        num_stderr_bytes
+                    );
+                }
+                
                 resolve(commandRun);
             };
             exec(command, options, callback);
