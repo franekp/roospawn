@@ -154,3 +154,12 @@ export function notebookPyodideLoadingFailed(duration: number) {
         duration
     });
 }
+
+/**
+ * Tracks when a Python hook starts execution
+ *
+ * @param hook The hook type that is being executed (onstart, onpause, onresume, oncomplete)
+ */
+export function hooksPyStart(hook: string) {
+    capture(`hooks:${hook}_py_start`, 1, {});
+}

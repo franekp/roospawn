@@ -4,6 +4,7 @@ import { IClineController, Message, MessagesRx, MessagesTx } from './cline_contr
 import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
 import { PromptSummarizer } from './prompt_summarizer';
 import { CommandRun, HookKind, HookRun } from './hooks';
+import * as posthog from './posthog';
 import { TaskLifecycle, Worker } from './worker';
 import EventEmitter from 'events';
 
@@ -141,6 +142,9 @@ export class Task implements ITask {
         if (rsp.currentHookRun !== undefined) {
             throw new Error('Running hook when the previous one has not finished yet');
         }
+
+        // Track hook execution start in PostHog
+        posthog.hooksPyStart(hook);
 
         const hookFunc = this.hooks?.[hook] ?? rsp.globalHooks[hook];
         if (hookFunc === undefined) {
