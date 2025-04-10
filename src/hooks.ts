@@ -28,14 +28,26 @@ export class HookRun {
                 const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, finished);
                 this.commands.push(commandRun);
                 
-                // Track command failure in PostHog if there was an error
+                // Calculate metrics for stdout and stderr
+                const num_stdout_lines = stdout.split('\n').length;
+                const num_stderr_lines = stderr.split('\n').length;
+                const num_stdout_bytes = Buffer.from(stdout).length;
+                const num_stderr_bytes = Buffer.from(stderr).length;
+                
+                // Track command result in PostHog
                 if (error) {
-                    const num_stdout_lines = stdout.split('\n').length;
-                    const num_stderr_lines = stderr.split('\n').length;
-                    const num_stdout_bytes = Buffer.from(stdout).length;
-                    const num_stderr_bytes = Buffer.from(stderr).length;
-                    
+                    // Track command failure
                     posthog.hooksCmdFailure(
+                        this.kind,
+                        duration,
+                        num_stdout_lines,
+                        num_stderr_lines,
+                        num_stdout_bytes,
+                        num_stderr_bytes
+                    );
+                } else {
+                    // Track command success
+                    posthog.hooksCmdSuccess(
                         this.kind,
                         duration,
                         num_stdout_lines,

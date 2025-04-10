@@ -237,3 +237,30 @@ export function hooksCmdFailure(
         num_stderr_bytes
     });
 }
+
+/**
+ * Tracks when a command execution succeeds within a hook
+ *
+ * @param hook The hook type where the command succeeded (onstart, onpause, onresume, oncomplete)
+ * @param duration The duration in milliseconds from command start until completion
+ * @param num_stdout_lines Number of lines in the stdout output
+ * @param num_stderr_lines Number of lines in the stderr output
+ * @param num_stdout_bytes Number of bytes in the stdout output
+ * @param num_stderr_bytes Number of bytes in the stderr output
+ */
+export function hooksCmdSuccess(
+    hook: string,
+    duration: number,
+    num_stdout_lines: number,
+    num_stderr_lines: number,
+    num_stdout_bytes: number,
+    num_stderr_bytes: number
+) {
+    capture(`hooks:${hook}_cmd_success`, 1, {
+        duration,
+        num_stdout_lines,
+        num_stderr_lines,
+        num_stdout_bytes,
+        num_stderr_bytes
+    });
+}
