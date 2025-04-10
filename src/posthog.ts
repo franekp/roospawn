@@ -1,6 +1,7 @@
 import { PostHog } from "posthog-node";
 import { uuidv7 } from "uuidv7";
 import * as vscode from 'vscode';
+import { HookKind } from './hooks';
 
 let posthog: PostHog | undefined;
 let distinctId: string | undefined;
@@ -160,7 +161,7 @@ export function notebookPyodideLoadingFailed(duration: number) {
  *
  * @param hook The hook type that is being executed (onstart, onpause, onresume, oncomplete)
  */
-export function hooksPyStart(hook: string) {
+export function hooksPyStart(hook: HookKind) {
     capture(`hooks:${hook}_py_start`, 1, {});
 }
 
@@ -170,7 +171,7 @@ export function hooksPyStart(hook: string) {
  * @param hook The hook type that threw the exception (onstart, onpause, onresume, oncomplete)
  * @param duration The duration in milliseconds from hook start until the exception occurred
  */
-export function hooksPyException(hook: string, duration: number) {
+export function hooksPyException(hook: HookKind, duration: number) {
     capture(`hooks:${hook}_py_exception`, 1, {
         duration
     });
@@ -182,7 +183,7 @@ export function hooksPyException(hook: string, duration: number) {
  * @param hook The hook type that completed successfully (onstart, onpause, onresume, oncomplete)
  * @param duration The duration in milliseconds from hook start until completion
  */
-export function hooksPySuccess(hook: string, duration: number) {
+export function hooksPySuccess(hook: HookKind, duration: number) {
     capture(`hooks:${hook}_py_success`, 1, {
         duration
     });
@@ -194,7 +195,7 @@ export function hooksPySuccess(hook: string, duration: number) {
  * @param hook The hook type where the command is executed (onstart, onpause, onresume, oncomplete)
  * @param command The command being executed
  */
-export function hooksCmdStart(hook: string, command: string) {
+export function hooksCmdStart(hook: HookKind, command: string) {
     // Count the number of commands (split by newline, semicolon)
     const num_commands = command.split(/[\n;]/).filter(cmd => cmd.trim().length > 0).length;
     
@@ -222,7 +223,7 @@ export function hooksCmdStart(hook: string, command: string) {
  * @param num_stderr_bytes Number of bytes in the stderr output
  */
 export function hooksCmdFailure(
-    hook: string,
+    hook: HookKind,
     duration: number,
     num_stdout_lines: number,
     num_stderr_lines: number,
@@ -249,7 +250,7 @@ export function hooksCmdFailure(
  * @param num_stderr_bytes Number of bytes in the stderr output
  */
 export function hooksCmdSuccess(
-    hook: string,
+    hook: HookKind,
     duration: number,
     num_stdout_lines: number,
     num_stderr_lines: number,
