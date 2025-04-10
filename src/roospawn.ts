@@ -181,6 +181,11 @@ export class Task implements ITask {
         }
 
         rsp.currentHookRun = undefined;
+        
+        // Track successful Python hook execution in PostHog with duration
+        const duration = Date.now() - hookRun.timestamp;
+        posthog.hooksPySuccess(hook, duration);
+        
         return hookRun;
     }
 }

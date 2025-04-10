@@ -175,3 +175,15 @@ export function hooksPyException(hook: string, duration: number) {
         duration
     });
 }
+
+/**
+ * Tracks when a Python hook execution completes successfully
+ *
+ * @param hook The hook type that completed successfully (onstart, onpause, onresume, oncomplete)
+ * @param duration The duration in milliseconds from hook start until completion
+ */
+export function hooksPySuccess(hook: string, duration: number) {
+    capture(`hooks:${hook}_py_success`, 1, {
+        duration
+    });
+}
