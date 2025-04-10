@@ -82,3 +82,4 @@ export type ClineSay =
     | "new_task"
     | "checkpoint_saved"
     | "rooignore_error"
+    | "subtask_result"

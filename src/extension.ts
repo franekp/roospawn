@@ -2,10 +2,12 @@ import * as vscode from 'vscode';
 import { RooSpawnSerializer } from './notebook_serializer';
 import { PyNotebookController } from './py_notebook_controller';
 import { IClineController } from './cline_controller';
-import { ClineController as ClineController384 } from './controller-3.8.4/cline_controller';
-import { ClineController as ClineController386 } from './controller-3.8.6-dev/cline_controller';
+import { ClineController as ClineController_3_8_4 } from './controller-3.8.4/cline_controller';
+import { ClineController as ClineController_3_8_6 } from './controller-3.8.6-dev/cline_controller';
+import { ClineController as ClineController_3_11_9 } from './controller-3.11.9/cline_controller';
 import * as posthog from './posthog';
 import { RooSpawn, Task, Tasks } from './roospawn';
+import { compareVersions } from 'compare-versions';
 
 export { RooSpawn, Task };
 
@@ -21,19 +23,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
         throw new Error('Roospawn: RooCode (rooveterinaryinc.roo-code) extension not found');
     }
 
+    const rooCodeVersion = ai_extension.packageJSON.version;
+
     const tasks = new Tasks();
     let clineController: IClineController;
 
-    if (ai_extension.exports.resumeTask) {
+    if (compareVersions(rooCodeVersion, '3.11.9') >= 0) {
+        const ai_api: import('./controller-3.11.9/roo-code').RooCodeAPI = ai_extension.exports;
+        clineController = new ClineController_3_11_9(ai_api, true);
+    } else if (ai_extension.exports.resumeTask) {
         const ai_api: import('./controller-3.8.6-dev/roo-code').RooCodeAPI = ai_extension.exports;
-        const ClineController = ClineController386;
-        clineController = new ClineController(ai_api, true);
-        vscode.window.showInformationMessage('RooSpawn: Using new Cline API');
+        clineController = new ClineController_3_8_6(ai_api, true);
     } else {
         const ai_api: import('./controller-3.8.4/cline').ClineAPI = ai_extension.exports;
-        const ClineController = ClineController384;
-        clineController = new ClineController(ai_api.sidebarProvider, tasks);
-        vscode.window.showInformationMessage('RooSpawn: Using old Cline API');
+        clineController = new ClineController_3_8_4(ai_api.sidebarProvider, tasks);
     }
 
     const rooSpawn = new RooSpawn(context, outputChannel, clineController, tasks);

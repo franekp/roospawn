@@ -175,8 +175,12 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
             task.clineId = taskId;
             return { type: 'roospawn', rootTaskId: taskId, tx };
         };
-        await this.api.setConfiguration({ mode: task.mode });
-        await this.api.startNewTask(task.prompt);
+        await this.api.startNewTask({
+            text: task.prompt,
+            configuration: {
+                mode: task.mode,
+            },
+        });
         return rx;
     }
 
@@ -319,13 +323,10 @@ function createUserTask(taskId: string): RooCodeTask {
 
 function isRooCodeRunningTask(rooCode: RooCodeAPI): boolean {
     const tasksStack = rooCode.getCurrentTaskStack();
-    if (tasksStack.length === 0) {
-        return false;
-    }
-
-    const rootTask = tasksStack[0];
-    const messages = rooCode.getMessages(rootTask);
-    return !messages.some(m => m.type === 'say' && m.say === 'completion_result');
+    // Note that this is approximation, user should not rely on this value
+    // and start the worker manually if they know that RooSpawn can preempt
+    // the task in Roo-Code.
+    return tasksStack.length > 1;
 }
 
 function clineMessageToMessage(message: ClineMessage): Message {

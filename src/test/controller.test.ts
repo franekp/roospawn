@@ -11,11 +11,13 @@ import { assert } from 'chai';
 describe('Integration with Roo-Code', async () => {
 	let rooSpawn: RooSpawnExtension.RooSpawn;
 	let rooCode: any;
+	let startTask: (prompt: string, mode: string) => Promise<void>;
 
 	before(async () => {
 		const result = await initializeRooSpawn();
 		rooSpawn = result.rooSpawn;
 		rooCode = result.rooCode;
+		startTask = result.startTask;
 	});
 
 	afterEach(async () => {
@@ -24,7 +26,7 @@ describe('Integration with Roo-Code', async () => {
 
 	it('Simple task test', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -44,11 +46,13 @@ describe('Integration with Roo-Code', async () => {
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'completion_result', text: 'Hello' });
 		assertMessage((await messageRx.next()).value, { type: 'status', status: 'completed' });
 		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'completion_result', text: '' });
+
+		fakeAi.dispose();
 	}));
 
 	it('Subtasks are handled correctly', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 			autoApprovalEnabled: true,
@@ -79,9 +83,9 @@ describe('Integration with Roo-Code', async () => {
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'api_req_started' });
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'Hello, world!' });
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'completion_result', text: 'Hello' });
-		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'tool', text: '{"tool":"finishTask","content":"Subtask completed! You can review the results and suggest any corrections or next steps. If everything looks good, confirm to return the result to the parent task."}' });
+		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'tool', text: '{"tool":"finishTask"}' });
 
-		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: 'Task complete: Hello, world!' });
+		assertMessage((await messageRx.next()).value, { type: 'say', say: 'subtask_result', text: 'Hello, world!' });
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'api_req_started' });
 		
 		tx3.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>'});
@@ -91,11 +95,13 @@ describe('Integration with Roo-Code', async () => {
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'completion_result', text: 'Hello' });
 		assertMessage((await messageRx.next()).value, { type: 'status', status: 'completed' });
 		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'completion_result', text: '' });
+
+		fakeAi.dispose();
 	}));
 
 	it('Starting task sets `clineId` and `tx` fields of the task', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -106,11 +112,13 @@ describe('Integration with Roo-Code', async () => {
 
 		assert.isDefined(task1.clineId);
 		assert.isDefined(task1.tx);
+
+		fakeAi.dispose();
 	}));
 
 	it('Aborts root task correctly', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 			autoApprovalEnabled: true,
@@ -149,12 +157,13 @@ describe('Integration with Roo-Code', async () => {
 			event.type === 'rootTaskEnded' && event.taskId === task1.clineId
 		);
 		
-		eventsCollector.dispose();		
+		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('Aborts task stack correctly', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 			autoApprovalEnabled: true,
@@ -198,11 +207,12 @@ describe('Integration with Roo-Code', async () => {
 		);
 
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('RooSpawn tasks emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -229,11 +239,12 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEndedEvent.taskId === task.clineId);
 		
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('RooSpawn subtasks do not emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 			autoApprovalEnabled: true,
@@ -269,11 +280,12 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEvent.type === 'rootTaskEnded' && rootTaskEvent.taskId === task.clineId);
 		
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('User tasks emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -284,7 +296,7 @@ describe('Integration with Roo-Code', async () => {
 
 		const tx = fakeAi.handlersManager.add();
 
-		await rooCode.startNewTask('test');
+		await startTask('test', 'code');
 
 		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
 		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
@@ -299,11 +311,12 @@ describe('Integration with Roo-Code', async () => {
 		assert.equal(rootTaskStartedEvent.taskId, rootTaskEndedEvent.taskId);
 
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('User subtasks do not emit `rootTaskStarted` and `rootTaskEnded` events', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 			autoApprovalEnabled: true,
@@ -318,7 +331,7 @@ describe('Integration with Roo-Code', async () => {
 		const tx2 = fakeAi.handlersManager.add();
 		const tx3 = fakeAi.handlersManager.add();
 
-		await rooCode.startNewTask('test');
+		await startTask('test', 'code');
 
 		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
 		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
@@ -337,13 +350,14 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEvent.type === 'rootTaskEnded' && rootTaskEvent.taskId === rootTaskStartedEvent.taskId);
 		
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('RooSpawn sets the proper mode in the Roo-Code configuration when starting a task', tf(async (fail) => {
 		const ASK_MODE_PROMPT = 'You are Roo, a knowledgeable technical assistant focused on answering questions and providing information about software development, technology, and related topics.';
 
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -369,11 +383,13 @@ describe('Integration with Roo-Code', async () => {
 		await controller.startTask(task);
 
 		await promise;
+
+		fakeAi.dispose();
 	}));
 
 	it('User feedback to finished RooSpawn task should emit `rootTaskStarted` event', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -412,11 +428,12 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEndedEvent2.type === 'rootTaskEnded');
 
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 
 	it('User feedback to finished user task should emit `rootTaskStarted` event', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
-		rooCode.setConfiguration({
+		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
@@ -427,7 +444,7 @@ describe('Integration with Roo-Code', async () => {
 		
 		const tx = fakeAi.handlersManager.add();
 
-		await rooCode.startNewTask('test');
+		await startTask('test', 'code');
 
 		const rootTaskStartedEvent = await cursor.waitFor((event) => event.type === 'rootTaskStarted');
 		assert(rootTaskStartedEvent.type === 'rootTaskStarted');
@@ -454,5 +471,6 @@ describe('Integration with Roo-Code', async () => {
 		assert(rootTaskEndedEvent2.type === 'rootTaskEnded');
 
 		eventsCollector.dispose();
+		fakeAi.dispose();
 	}));
 });

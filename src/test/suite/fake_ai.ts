@@ -1,5 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import { Channel } from '../../async_utils';
+import { uuidv7 } from 'uuidv7';
 
 
 export interface ModelInfo {
@@ -41,6 +42,9 @@ export interface ApiStreamUsageChunk {
 
 
 export class FakeAi {
+	readonly id: string = uuidv7();
+	removeFromCache?: () => void;
+	
 	readonly handlersManager = new HandlersManager();
     
 	constructor(private readonly onUnhandledQuery: () => void) {}
@@ -60,6 +64,10 @@ export class FakeAi {
     async countTokens(content: Array<Anthropic.Messages.ContentBlockParam>): Promise<number> {
         return 0;
     }
+
+	dispose() {
+		this.removeFromCache?.();
+	}
 }
 
 export class HandlersManager {
