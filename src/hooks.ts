@@ -1,4 +1,5 @@
 import { exec, ExecException, ExecOptions } from "child_process";
+import * as posthog from './posthog';
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 
@@ -16,11 +17,17 @@ export class HookRun {
     }
 
     command(command: string, options: ExecOptions): Promise<CommandRun> {
+        posthog.hooksCmdStart(this.kind, command);
+        
         return new Promise(resolve => {
             const started = Date.now();
             const callback = (error: ExecException | null, stdout: string, stderr: string) => {
-                const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, Date.now());
+                const finished = Date.now();
+                const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, finished);
                 this.commands.push(commandRun);
+
+                posthog.hooksCmdResult(this.kind, error === null, finished - started, stdout, stderr);
+                
                 resolve(commandRun);
             };
             exec(command, options, callback);

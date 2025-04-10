@@ -1,6 +1,7 @@
 import { PostHog } from "posthog-node";
 import { uuidv7 } from "uuidv7";
 import * as vscode from 'vscode';
+import { HookKind } from './hooks';
 
 let posthog: PostHog | undefined;
 let distinctId: string | undefined;
@@ -152,5 +153,88 @@ export function notebookCellExec10sElapsed(elapsedTime: number) {
 export function notebookPyodideLoadingFailed(duration: number) {
     capture('notebook:pyodide_loading_failed', 1, {
         duration
+    });
+}
+
+/**
+ * Tracks when a Python hook starts execution
+ *
+ * @param hook The hook type that is being executed (onstart, onpause, onresume, oncomplete)
+ */
+export function hooksPyStart(hook: HookKind) {
+    capture(`hooks:${hook}_py_start`, 1, {});
+}
+
+/**
+ * Tracks when a Python hook execution results in an exception
+ *
+ * @param hook The hook type that threw the exception (onstart, onpause, onresume, oncomplete)
+ * @param duration The duration in milliseconds from hook start until the exception occurred
+ */
+export function hooksPyException(hook: HookKind, duration: number) {
+    capture(`hooks:${hook}_py_exception`, 1, {
+        duration
+    });
+}
+
+/**
+ * Tracks when a Python hook execution completes successfully
+ *
+ * @param hook The hook type that completed successfully (onstart, onpause, onresume, oncomplete)
+ * @param duration The duration in milliseconds from hook start until completion
+ */
+export function hooksPySuccess(hook: HookKind, duration: number) {
+    capture(`hooks:${hook}_py_success`, 1, {
+        duration
+    });
+}
+
+/**
+ * Tracks when a command starts execution within a hook
+ *
+ * @param hook The hook type where the command is executed (onstart, onpause, onresume, oncomplete)
+ * @param command The command being executed
+ */
+export function hooksCmdStart(hook: HookKind, command: string) {
+    // Count the number of commands (split by newline, semicolon)
+    const num_commands = command.split(/(((?<!\\)\n)|;|&&|\|\|)/).filter(cmd => cmd.trim().length > 0).length;
+    
+    // Count the number of characters
+    const num_chars = command.length;
+    
+    // Count git commands
+    const num_git_commands = (command.match(/\bgit\s+/g) || []).length;
+    
+    capture(`hooks:${hook}_cmd_start`, 1, {
+        num_commands,
+        num_chars,
+        num_git_commands
+    });
+}
+
+/**
+ * Tracks when a command execution completes within a hook
+ *
+ * @param hook The hook type where the command was executed (onstart, onpause, onresume, oncomplete)
+ * @param success Whether the command execution was successful
+ * @param duration The duration in milliseconds from command start until completion
+ * @param stdout The command's stdout output
+ * @param stderr The command's stderr output
+ */
+export function hooksCmdResult(
+    hook: HookKind,
+    success: boolean,
+    duration: number,
+    stdout: string,
+    stderr: string
+) {
+    const eventType = success ? 'success' : 'failure';
+    
+    capture(`hooks:${hook}_cmd_${eventType}`, 1, {
+        duration,
+        num_stdout_lines: stdout.split('\n').length,
+        num_stderr_lines: stderr.split('\n').length,
+        num_stdout_chars: stdout.length,
+        num_stderr_chars: stderr.length
     });
 }
