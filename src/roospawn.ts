@@ -159,9 +159,14 @@ export class Task implements ITask {
         let command: string | undefined | null = null;
         try {
             command = await hookFunc(this);
-        } catch {
+        } catch (error) {
             hookRun.failed = true;
             rsp.currentHookRun = undefined;
+            
+            // Track Python hook exception in PostHog with duration
+            const duration = Date.now() - hookRun.timestamp;
+            posthog.hooksPyException(hook, duration);
+            
             return hookRun;
         }
 

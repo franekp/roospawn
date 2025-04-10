@@ -163,3 +163,15 @@ export function notebookPyodideLoadingFailed(duration: number) {
 export function hooksPyStart(hook: string) {
     capture(`hooks:${hook}_py_start`, 1, {});
 }
+
+/**
+ * Tracks when a Python hook execution results in an exception
+ *
+ * @param hook The hook type that threw the exception (onstart, onpause, onresume, oncomplete)
+ * @param duration The duration in milliseconds from hook start until the exception occurred
+ */
+export function hooksPyException(hook: string, duration: number) {
+    capture(`hooks:${hook}_py_exception`, 1, {
+        duration
+    });
+}
