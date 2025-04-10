@@ -143,7 +143,6 @@ export class Task implements ITask {
             throw new Error('Running hook when the previous one has not finished yet');
         }
 
-        // Track hook execution start in PostHog
         posthog.hooksPyStart(hook);
 
         const hookFunc = this.hooks?.[hook] ?? rsp.globalHooks[hook];
@@ -159,13 +158,11 @@ export class Task implements ITask {
         let command: string | undefined | null = null;
         try {
             command = await hookFunc(this);
-        } catch (error) {
+        } catch {
             hookRun.failed = true;
             rsp.currentHookRun = undefined;
             
-            // Track Python hook exception in PostHog with duration
-            const duration = Date.now() - hookRun.timestamp;
-            posthog.hooksPyException(hook, duration);
+            posthog.hooksPyException(hook, Date.now() - hookRun.timestamp);
             
             return hookRun;
         }
@@ -182,9 +179,7 @@ export class Task implements ITask {
 
         rsp.currentHookRun = undefined;
         
-        // Track successful Python hook execution in PostHog with duration
-        const duration = Date.now() - hookRun.timestamp;
-        posthog.hooksPySuccess(hook, duration);
+        posthog.hooksPySuccess(hook, Date.now() - hookRun.timestamp);
         
         return hookRun;
     }

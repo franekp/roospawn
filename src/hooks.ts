@@ -17,35 +17,16 @@ export class HookRun {
     }
 
     command(command: string, options: ExecOptions): Promise<CommandRun> {
-        // Track command start in PostHog
         posthog.hooksCmdStart(this.kind, command);
         
         return new Promise(resolve => {
             const started = Date.now();
             const callback = (error: ExecException | null, stdout: string, stderr: string) => {
                 const finished = Date.now();
-                const duration = finished - started;
                 const commandRun = new CommandRun(command, error?.code ?? 0, stdout, stderr, started, finished);
                 this.commands.push(commandRun);
-                
-                // Track command result in PostHog
-                if (error) {
-                    // Track command failure
-                    posthog.hooksCmdFailure(
-                        this.kind,
-                        duration,
-                        stdout,
-                        stderr
-                    );
-                } else {
-                    // Track command success
-                    posthog.hooksCmdSuccess(
-                        this.kind,
-                        duration,
-                        stdout,
-                        stderr
-                    );
-                }
+
+                posthog.hooksCmdResult(this.kind, error === null, finished - started, stdout, stderr);
                 
                 resolve(commandRun);
             };

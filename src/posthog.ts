@@ -213,67 +213,28 @@ export function hooksCmdStart(hook: HookKind, command: string) {
 }
 
 /**
- * Tracks when a command execution fails within a hook
+ * Tracks when a command execution completes within a hook
  *
- * @param hook The hook type where the command failed (onstart, onpause, onresume, oncomplete)
- * @param duration The duration in milliseconds from command start until failure
- * @param stdout The command's stdout output
- * @param stderr The command's stderr output
- */
-export function hooksCmdFailure(
-    hook: HookKind,
-    duration: number,
-    stdout: string,
-    stderr: string
-) {
-    const stats = calculateCommandOutputStats(stdout, stderr);
-    
-    capture(`hooks:${hook}_cmd_failure`, 1, {
-        duration,
-        num_stdout_lines: stats.num_stdout_lines,
-        num_stderr_lines: stats.num_stderr_lines,
-        num_stdout_chars: stats.num_stdout_chars,
-        num_stderr_chars: stats.num_stderr_chars
-    });
-}
-
-/**
- * Tracks when a command execution succeeds within a hook
- *
- * @param hook The hook type where the command succeeded (onstart, onpause, onresume, oncomplete)
+ * @param hook The hook type where the command was executed (onstart, onpause, onresume, oncomplete)
+ * @param success Whether the command execution was successful
  * @param duration The duration in milliseconds from command start until completion
  * @param stdout The command's stdout output
  * @param stderr The command's stderr output
  */
-export function hooksCmdSuccess(
+export function hooksCmdResult(
     hook: HookKind,
+    success: boolean,
     duration: number,
     stdout: string,
     stderr: string
 ) {
-    const stats = calculateCommandOutputStats(stdout, stderr);
+    const eventType = success ? 'success' : 'failure';
     
-    capture(`hooks:${hook}_cmd_success`, 1, {
+    capture(`hooks:${hook}_cmd_${eventType}`, 1, {
         duration,
-        num_stdout_lines: stats.num_stdout_lines,
-        num_stderr_lines: stats.num_stderr_lines,
-        num_stdout_chars: stats.num_stdout_chars,
-        num_stderr_chars: stats.num_stderr_chars
-    });
-}
-
-/**
- * Calculates command output statistics
- *
- * @param stdout The command's stdout output
- * @param stderr The command's stderr output
- * @returns Object containing line counts and character counts for stdout and stderr
- */
-function calculateCommandOutputStats(stdout: string, stderr: string) {
-    return {
         num_stdout_lines: stdout.split('\n').length,
         num_stderr_lines: stderr.split('\n').length,
         num_stdout_chars: stdout.length,
         num_stderr_chars: stderr.length
-    };
+    });
 }
