@@ -1,5 +1,5 @@
 import { type SelectionState } from "../selection_state";
-import { type ITask } from "../../shared";
+import { type RendererTask } from "../../renderer_interface";
 
 export interface Draggable {
     events: {
@@ -9,7 +9,7 @@ export interface Draggable {
     ready: boolean,
 }
 
-export function useDraggable(selectionState: SelectionState, task: ITask): Draggable {
+export function useDraggable(selectionState: SelectionState, task: RendererTask): Draggable {
 
     const onDragStart = (evt: React.DragEvent<HTMLDivElement>) => {
         // console.log(`onDragStart: ${task.id}`)

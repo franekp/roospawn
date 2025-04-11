@@ -1,6 +1,6 @@
 import '../svg.d.ts'  // ts langserver needs this, not needed to compile without errors
 import React from 'react'
-import { ITask, MessageFromRenderer } from '../../shared'
+import { RendererTask, MessageFromRenderer } from '../../renderer_interface'
 import ArchiveIcon from '../icons/archive-arrow-down.svg'
 import UnarchiveIcon from '../icons/archive-arrow-up.svg'
 import SubmitIcon from '../icons/submit.svg'
@@ -8,7 +8,7 @@ import CancelIcon from '../icons/cancel.svg'
 
 
 type TaskButtonsProps = {
-    task: ITask,
+    task: RendererTask,
     postMessage: (message: MessageFromRenderer) => void,
 }
 

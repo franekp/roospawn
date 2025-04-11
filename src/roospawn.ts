@@ -1,15 +1,20 @@
 import * as vscode from 'vscode';
 import { v4 as uuidv4 } from 'uuid';
-import { IClineController, Message, MessagesRx, MessagesTx } from './cline_controller';
-import { ITask, MessageFromRenderer, MessageToRenderer, RendererInitializationData, TaskStatus, Hooks } from './shared';
+import { IClineController, Message, MessagesTx } from './cline_controller';
+import { RendererTask, MessageFromRenderer, MessageToRenderer, RendererInitializationData } from './renderer_interface';
 import { PromptSummarizer } from './prompt_summarizer';
-import { CommandRun, HookKind, HookRun } from './hooks';
+import { CommandRun, Hooks, HookKind, HookRun } from './hooks';
 import * as posthog from './posthog';
 import { TaskLifecycle, Worker } from './worker';
 import EventEmitter from 'events';
 
 
-export class Task implements ITask {
+export type TaskStatus =
+    | 'prepared' | 'queued' | 'running'
+    | 'completed' | 'asking' | 'aborted' | 'error'
+    ;
+
+export class Task {
     id: string;
     prompt: string;
     summary: string[];
@@ -137,6 +142,17 @@ export class Task implements ITask {
         return JSON.stringify(this.hookRuns);
     }
 
+    toRendererTask(): RendererTask {
+        return {
+            id: this.id,
+            prompt: this.prompt,
+            summary: this.summary,
+            mode: this.mode,
+            status: this.status,
+            archived: this.archived
+        };
+    }
+
     async runHook(hook: HookKind): Promise<HookRun> {
         const rsp = roospawn!;
         if (rsp.currentHookRun !== undefined) {
@@ -259,7 +275,7 @@ type TaskSourceEvent = {
 
 export class RooSpawnStatus implements RendererInitializationData {
     public mime_type = 'application/x-roospawn-status';
-    constructor(public tasks: ITask[], public workerActive: boolean) {}
+    constructor(public tasks: RendererTask[], public workerActive: boolean) {}
 }
 
 let roospawn: RooSpawn | undefined;
@@ -351,7 +367,7 @@ export class RooSpawn {
             await new Promise<void>(resolve => setTimeout(async () => {
                 await this.rendererMessaging.postMessage({
                     type: 'statusUpdated',
-                    tasks: [...this.tasks],
+                    tasks: [...this.tasks].map(t => t.toRendererTask()),
                     workerActive: this.worker.active,
                 } as MessageToRenderer);
                 resolve();
@@ -423,7 +439,7 @@ export class RooSpawn {
     }
 
     livePreview(): RooSpawnStatus {
-        return new RooSpawnStatus([...this.tasks], this.worker.active);
+        return new RooSpawnStatus([...this.tasks].map(t => t.toRendererTask()), this.worker.active);
     }
 
     async showRooCodeSidebar(): Promise<void> {

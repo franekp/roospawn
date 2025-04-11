@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { type SelectionState } from "../selection_state";
-import { type ITask , type MessageFromRenderer} from "../../shared";
+import { type RendererTask , type MessageFromRenderer} from "../../renderer_interface";
 import { handleClick } from "./selectable";
 
 export interface DropTarget {
@@ -14,7 +14,7 @@ export interface DropTarget {
     status: 'clear' | 'hoveredFromLeft' | 'hoveredFromRight' | 'hoveredByItself',
 }
 
-export function useDropTarget(selectionState: SelectionState, task: ITask, tasks: ITask[], postMessage: (message: MessageFromRenderer) => void): DropTarget {
+export function useDropTarget(selectionState: SelectionState, task: RendererTask, tasks: RendererTask[], postMessage: (message: MessageFromRenderer) => void): DropTarget {
     const [status, setStatus] = useState<'clear' | 'hoveredFromLeft' | 'hoveredFromRight' | 'hoveredByItself'>('clear');
 
     const onDragEnter = (evt: React.DragEvent<HTMLDivElement>) => {

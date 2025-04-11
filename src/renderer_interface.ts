@@ -1,11 +1,6 @@
-import { Task } from "./roospawn";
+import { TaskStatus } from "./roospawn";
 
-export type TaskStatus =
-    | 'prepared' | 'queued' | 'running'
-    | 'completed' | 'asking' | 'aborted' | 'error'
-    ;
-
-export interface ITask {
+export interface RendererTask {
     id: string;
     prompt: string;
     summary: string[];
@@ -15,7 +10,7 @@ export interface ITask {
 }
 
 export interface RendererInitializationData {
-    tasks: ITask[];
+    tasks: RendererTask[];
     workerActive: boolean;
 }
 
@@ -33,15 +28,6 @@ export type MessageFromRenderer = {
 
 export type MessageToRenderer = {
     type: 'statusUpdated',
-    tasks: ITask[],
+    tasks: RendererTask[],
     workerActive: boolean,
 };
-
-export interface Hooks {
-    onstart?: HookFunction;
-    oncomplete?: HookFunction;
-    onpause?: HookFunction;
-    onresume?: HookFunction;
-}
-
-export type HookFunction = (task: Task) => string | undefined | Promise<string | undefined>;

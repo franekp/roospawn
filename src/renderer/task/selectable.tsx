@@ -1,5 +1,5 @@
 import { type SelectionState } from "../selection_state";
-import { type ITask } from "../../shared";
+import { type RendererTask } from "../../renderer_interface";
 
 export interface Selectable {
     events: {
@@ -10,7 +10,7 @@ export interface Selectable {
     selected: boolean,
 }
 
-export function useSelectable(selectionState: SelectionState, task: ITask, tasks: ITask[]): Selectable {
+export function useSelectable(selectionState: SelectionState, task: RendererTask, tasks: RendererTask[]): Selectable {
 
     const onMouseDown = (evt: React.MouseEvent<HTMLDivElement>) => {
         // console.log(`onMouseDown: ${task.id} (${selectionState.selectedTasks.has(task.id)} ${evt.ctrlKey} ${evt.shiftKey})`)
@@ -51,7 +51,7 @@ export function useSelectable(selectionState: SelectionState, task: ITask, tasks
     }
 }
 
-function updateSelectedTasksFromDragRange(selectionState: SelectionState, start: string, end: string, tasks: ITask[], evt: React.MouseEvent<HTMLDivElement>) {
+function updateSelectedTasksFromDragRange(selectionState: SelectionState, start: string, end: string, tasks: RendererTask[], evt: React.MouseEvent<HTMLDivElement>) {
     if (start === end) {
         handleClick(evt, start, selectionState)
         return

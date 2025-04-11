@@ -1,7 +1,7 @@
 import type { ActivationFunction, OutputItem, RendererContext } from 'vscode-notebook-renderer';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import type { RendererInitializationData } from '../shared';
+import type { RendererInitializationData } from '../renderer_interface';
 import TaskList from './task_list';
 
 

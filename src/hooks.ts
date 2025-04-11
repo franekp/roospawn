@@ -1,7 +1,18 @@
 import { exec, ExecException, ExecOptions } from "child_process";
 import * as posthog from './posthog';
+import { Task } from "./roospawn";
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
+
+export interface Hooks {
+    onstart?: HookFunction;
+    oncomplete?: HookFunction;
+    onpause?: HookFunction;
+    onresume?: HookFunction;
+}
+
+export type HookFunction = (task: Task) => string | undefined | Promise<string | undefined>;
+
 
 export class HookRun {
     kind: HookKind;

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ITask, MessageFromRenderer } from '../../shared'
+import { RendererTask, MessageFromRenderer } from '../../renderer_interface'
 import { useSelectable } from './selectable'
 import { useDraggable } from './draggable'
 import { useDropTarget } from './drop_target'
@@ -8,10 +8,10 @@ import TaskButtons from './buttons'
 
 
 type TaskProps = {
-    task: ITask,
+    task: RendererTask,
     postMessage: (message: MessageFromRenderer) => void,
     selectionState: SelectionState,
-    tasks: ITask[]
+    tasks: RendererTask[]
 }
 
 export default function Task({task, postMessage, selectionState, tasks}: TaskProps): React.ReactNode {

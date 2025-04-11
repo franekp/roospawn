@@ -5,8 +5,8 @@ import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as vscode from 'vscode';
 import { Channel } from './async_utils';
 import * as posthog from './posthog';
+import { RendererInitializationData } from './renderer_interface';
 import { RooSpawn, RooSpawnStatus } from './roospawn';
-import { RendererInitializationData } from './shared';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';

@@ -1,14 +1,14 @@
 import '../css.d.ts'  // ts langserver needs this, not needed to compile without errors
 import React, { useState, useEffect } from 'react'
-import { ITask, MessageFromRenderer, MessageToRenderer } from '../../shared'
+import { RendererTask, MessageFromRenderer, MessageToRenderer } from '../../renderer_interface'
 import { useSelectionState, SelectionState } from '../selection_state'
 import { RendererContext } from 'vscode-notebook-renderer'
 import style from '../task/style.css'
 import Task from '../task'
 
 
-export default function TaskList({tasks: initialTasks, workerActive: initialWorkerActive, context}: {tasks: ITask[], workerActive: boolean, context: RendererContext<void>}) {
-    let [tasks, setTasks] = useState<ITask[]>(initialTasks)
+export default function TaskList({tasks: initialTasks, workerActive: initialWorkerActive, context}: {tasks: RendererTask[], workerActive: boolean, context: RendererContext<void>}) {
+    let [tasks, setTasks] = useState<RendererTask[]>(initialTasks)
     let [workerActive, setWorkerActive] = useState<boolean>(initialWorkerActive)
 
     let selectionState = useSelectionState()
