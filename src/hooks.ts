@@ -1,6 +1,6 @@
 import { exec, ExecException, ExecOptions } from "child_process";
 import * as posthog from './posthog';
-import { Task } from "./roospawn";
+import { Task } from "./tasks";
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 

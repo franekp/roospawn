@@ -1,9 +1,9 @@
+import EventEmitter from 'events';
 import * as vscode from 'vscode';
 import { Channel } from '../async_utils';
-import { ClineMessage, RooCodeAPI } from './roo-code';
-import { Task } from '../roospawn';
 import { IClineController, Message, MessagesTx, MessagesRx, ControllerEvents } from '../cline_controller';
-import EventEmitter from 'events';
+import { ClineMessage, RooCodeAPI } from './roo-code';
+import { Task } from '../tasks';
 
 
 export interface ControllingTrackerParams {

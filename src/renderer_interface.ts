@@ -1,4 +1,4 @@
-import { TaskStatus } from "./roospawn";
+import { TaskStatus } from "./tasks";
 
 export interface RendererTask {
     id: string;

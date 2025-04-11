@@ -3,7 +3,7 @@
 
 import { EventEmitter } from 'events';
 import { Channel } from './async_utils';
-import { Task } from './roospawn';
+import { Task } from './tasks';
 
 /**
  * Assumptions about the controller implementation not represented in the interface:

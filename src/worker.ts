@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Watchdog } from './async_utils';
 import { IClineController, Message, MessagesRx } from './cline_controller';
-import { Task, Tasks } from './roospawn';
+import { Task, Tasks } from './tasks';
 
 
 export class Worker {

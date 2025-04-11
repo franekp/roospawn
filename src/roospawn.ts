@@ -1,292 +1,10 @@
 import * as vscode from 'vscode';
-import { v4 as uuidv4 } from 'uuid';
-import { IClineController, Message, MessagesTx } from './cline_controller';
-import { RendererTask, MessageFromRenderer, MessageToRenderer, RendererInitializationData } from './renderer_interface';
-import { PromptSummarizer } from './prompt_summarizer';
-import { CommandRun, Hooks, HookKind, HookRun } from './hooks';
+import { IClineController } from './cline_controller';
+import { MessageFromRenderer, MessageToRenderer, RendererInitializationData, RendererTask } from './renderer_interface';
+import { CommandRun, Hooks, HookRun } from './hooks';
 import * as posthog from './posthog';
-import { TaskLifecycle, Worker } from './worker';
-import EventEmitter from 'events';
-
-
-export type TaskStatus =
-    | 'prepared' | 'queued' | 'running'
-    | 'completed' | 'asking' | 'aborted' | 'error'
-    ;
-
-export class Task {
-    id: string;
-    prompt: string;
-    summary: string[];
-    mode: string;
-    hooks: Hooks | undefined;
-    private _status: TaskStatus = 'prepared';
-    private _archived: boolean = false;
-    prev_attempts: TaskStatus[] = [];
-
-    clineId?: string;
-    tx?: MessagesTx;
-    taskLifecycle?: TaskLifecycle;
-    conversation: Message[] = [];
-    hookRuns: HookRun[] = [];
-
-    constructor(prompt: string, mode: string, hooks?: Hooks) {
-        this.id = uuidv4().slice(0, 5);
-        this.prompt = prompt;
-        this.mode = mode;
-        this.hooks = hooks;
-
-        prompt = clean_whitespace(prompt);
-        const score = prompt_summarizer.score(prompt);
-        this.summary = prompt_summarizer.summary(prompt, score, 65);
-    }
-
-    get status(): TaskStatus {
-        return this._status;
-    }
-
-    set status(value: TaskStatus) {
-        if (this._status !== value) {
-            this._status = value;
-            roospawn?.tasks.emit('update');
-        }
-    }
-
-    get archived(): boolean {
-        return this._archived;
-    }
-
-    set archived(value: boolean) {
-        if (this._archived !== value) {
-            this._archived = value;
-            roospawn?.tasks.emit('update');
-        }
-    }
-
-    submit(verbose: boolean = true) {
-        switch (this.status) {
-            case 'prepared':
-                this.status = 'queued';
-                break;
-            case 'queued':
-                if (verbose) {
-                    vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
-                }
-                break;
-            case 'running':
-                if (verbose) {
-                    vscode.window.showInformationMessage(`Cannot submit: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
-                }
-                break;
-            case 'completed':
-            case 'asking':
-            case 'aborted':
-            case 'error': 
-                // resubmit task
-                this.prev_attempts.unshift(this.status);
-                this.status = 'queued';
-                break;
-        }
-    }
-
-    cancel(verbose: boolean = true) {
-        switch (this.status) {
-            case 'prepared':
-                if (verbose) {
-                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is not in queue, nothing to cancel ("${this.summary.join(' ... ')}")`);
-                }
-                break;
-            case 'queued':
-                this.status = this.prev_attempts.shift() ?? 'prepared';
-                break;
-            case 'running':
-                if (verbose) {
-                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
-                }
-                break;
-            case 'completed':
-            case 'asking':
-            case 'aborted':
-            case 'error':
-                if (verbose) {
-                    vscode.window.showInformationMessage(`Cannot cancel: task #${this.id} has already finished ("${this.summary.join(' ... ')}")`);
-                }
-                break;
-        }
-    }
-
-    archive(verbose: boolean = true) {
-        if (this.archived) {
-            if (verbose) {
-                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already archived ("${this.summary.join(' ... ')}")`);
-            }
-            return;
-        }
-
-        switch (this.status) {
-            case 'prepared':
-            case 'completed':
-            case 'asking': 
-            case 'aborted':
-            case 'error':
-                this.archived = true;
-                break;
-            case 'queued':
-                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
-                break;
-            case 'running':
-                vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already running ("${this.summary.join(' ... ')}")`);
-                break;
-        }
-    }
-
-    unarchive(verbose: boolean = true) {
-        if (!this.archived) {
-            if (verbose) {
-                vscode.window.showInformationMessage(`Cannot unarchive: task #${this.id} is not archived ("${this.summary.join(' ... ')}")`);
-            }
-            return;
-        }
-        this.archived = false;
-    }
-
-    conversation_as_json(): string {
-        return JSON.stringify(this.conversation);
-    }
-
-    hookRunsAsJson(): string {
-        return JSON.stringify(this.hookRuns);
-    }
-
-    toRendererTask(): RendererTask {
-        return {
-            id: this.id,
-            prompt: this.prompt,
-            summary: this.summary,
-            mode: this.mode,
-            status: this.status,
-            archived: this.archived
-        };
-    }
-
-    async runHook(hook: HookKind): Promise<HookRun> {
-        const rsp = roospawn!;
-        if (rsp.currentHookRun !== undefined) {
-            throw new Error('Running hook when the previous one has not finished yet');
-        }
-
-        posthog.hooksPyStart(hook);
-
-        const hookFunc = this.hooks?.[hook] ?? rsp.globalHooks[hook];
-        if (hookFunc === undefined) {
-            const run = new HookRun(hook);
-            this.hookRuns.push(run);
-            return run;
-        }
-        
-        const hookRun = new HookRun(hook);
-        this.hookRuns.push(hookRun);
-        rsp.currentHookRun = hookRun;
-        let command: string | undefined | null = null;
-        try {
-            command = await hookFunc(this);
-        } catch {
-            hookRun.failed = true;
-            rsp.currentHookRun = undefined;
-            
-            posthog.hooksPyException(hook, Date.now() - hookRun.timestamp);
-            
-            return hookRun;
-        }
-
-        if (command !== undefined) {
-            const cmdRun = await rsp.currentHookRun!.command(command, { cwd: rsp.workingDirectory, timeout: 300_000 });
-            if (cmdRun.exitCode !== 0) {
-                hookRun.failed = true;
-            }
-            if (roospawn !== undefined) {
-                roospawn.outputChannel.append('--------\n' + cmdRun.toString() + '\n--------\n');
-            }
-        }
-
-        rsp.currentHookRun = undefined;
-        
-        posthog.hooksPySuccess(hook, Date.now() - hookRun.timestamp);
-        
-        return hookRun;
-    }
-}
-
-export class Tasks extends EventEmitter<TaskSourceEvent> {
-    private _tasks: Task[] = [];
-    constructor() {
-        super();
-    }
-    
-    getTask(): Task | undefined {
-        return this._tasks.find(t => t.status === 'queued');
-    }
-
-    getTaskByClineId(clineId: string): Task | undefined {
-        return this._tasks.find(t => t.clineId === clineId);
-    }
-
-    get queued(): Task[] {
-        return this._tasks.filter(t => t.status === 'queued');
-    }
-
-    get running(): Task | undefined {
-        return this._tasks.find(t => t.status === 'running');
-    }
-
-    get completed(): Task[] {
-        return this._tasks.filter(t => t.status === 'completed');
-    }
-
-    get prepared(): Task[] {
-        return this._tasks.filter(t => t.status === 'prepared');
-    }
-
-    push(task: Task) {
-        this._tasks.push(task);
-        this.emit('update');
-    }
-
-    move(taskIds: string[], target: { taskId: string, position: 'before' | 'after' }) {
-        const selectedTasksSet = new Set(taskIds);
-        const targetIndex = this._tasks.findIndex(t => t.id === target.taskId);
-
-        if (targetIndex === -1) {
-            throw new Error('Target task not found');
-        }
-
-        const newTasks: Task[] = [];
-        for (const [i, task] of this._tasks.entries()) {
-            if (selectedTasksSet.has(task.id)) {
-                continue;
-            }
-            if (i === targetIndex && target.position === 'before') {
-                newTasks.push(...taskIds.map(t => this._tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
-            }
-            newTasks.push(task);
-            if (i === targetIndex && target.position === 'after') {
-                newTasks.push(...taskIds.map(t => this._tasks.find(t2 => t2.id === t)).filter(t => t !== undefined));
-            }
-        }
-
-        this._tasks.length = 0;  // clear the array
-        this._tasks.push(...newTasks);
-        this.emit('update');
-    }
-
-    [Symbol.iterator]() {
-        return this._tasks[Symbol.iterator]();
-    }
-}
-
-type TaskSourceEvent = {
-    update: [];
-}
+import { Worker } from './worker';
+import { Task, Tasks, TaskStatus } from './tasks';
 
 
 export class RooSpawnStatus implements RendererInitializationData {
@@ -295,9 +13,15 @@ export class RooSpawnStatus implements RendererInitializationData {
 }
 
 let roospawn: RooSpawn | undefined;
-let prompt_summarizer: PromptSummarizer = new PromptSummarizer();
 
 export class RooSpawn {
+    static get(): RooSpawn {
+        if (roospawn === undefined) {
+            throw new Error('RooSpawn not initialized');
+        }
+        return roospawn;
+    }
+
     globalHooks: Hooks = {
         onstart: undefined,
         oncomplete: undefined,
@@ -319,13 +43,12 @@ export class RooSpawn {
         public readonly tasks: Tasks,
     ) {
         this.worker = new Worker(this.tasks, this.clineController, this.outputChannel);
-        this.tasks.on('update', () => this.schedule_ui_repaint());
-        this.worker.run();
-        this.outputChannel.appendLine('RooSpawn initialized');
+        this.rendererMessaging = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
         roospawn = this;
 
-        // Set up renderer messaging
-        this.rendererMessaging = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
+        this.tasks.on('update', () => this.schedule_ui_repaint());
+        this.worker.run();
+
         this.rendererMessaging.onDidReceiveMessage(evt => {
             const msg = evt.message as MessageFromRenderer;
 
@@ -376,6 +99,8 @@ export class RooSpawn {
                     break;
             }
         });
+
+        this.outputChannel.appendLine('RooSpawn initialized');
     }
 
     async schedule_ui_repaint() {
@@ -383,7 +108,7 @@ export class RooSpawn {
             await new Promise<void>(resolve => setTimeout(async () => {
                 await this.rendererMessaging.postMessage({
                     type: 'statusUpdated',
-                    tasks: [...this.tasks].map(t => t.toRendererTask()),
+                    tasks: this.tasks.getRendererTasks(),
                     workerActive: this.worker.active,
                 } as MessageToRenderer);
                 resolve();
@@ -394,18 +119,11 @@ export class RooSpawn {
     createTasks(prompts: string[], mode: string, hooks?: Hooks): Task[] {
         this.showRooCodeSidebar();
 
-        for (const prompt of prompts) {
-            prompt_summarizer.insert(clean_whitespace(prompt));
-        }
-
-        const result = [...prompts].map(prompt => {
-            const task = new Task(prompt, mode, hooks);
-            this.tasks.push(task);
-            return task;
-        });
-
+        const tasks = [...prompts].map(prompt => new Task(prompt, mode, hooks));
+        this.tasks.push(...tasks);
         this.schedule_ui_repaint();
-        return result;
+
+        return tasks;
     }
 
     createHooks(onstart: any, oncomplete: any, onpause: any, onresume: any): Hooks {
@@ -455,7 +173,7 @@ export class RooSpawn {
     }
 
     livePreview(): RooSpawnStatus {
-        return new RooSpawnStatus([...this.tasks].map(t => t.toRendererTask()), this.worker.active);
+        return new RooSpawnStatus(this.tasks.getRendererTasks(), this.worker.active);
     }
 
     async showRooCodeSidebar(): Promise<void> {
@@ -507,7 +225,7 @@ export class RooSpawn {
         const statuses = [
             'prepared', 'prepared', 'queued', 'queued', 'queued', 'queued', 'running', 'completed', 'completed', 'completed',
             'asking', 'asking', 'aborted', 'error',
-        ];
+        ] as const;
 
         const is_archived = [
             false, true, false, false, false, false, false, false, true, true,
@@ -519,16 +237,14 @@ export class RooSpawn {
             prompts.push(prefixes[i % prefixes.length] + prompt + suffixes[i % suffixes.length]);
         }
 
-        for (const prompt of prompts) {
-            prompt_summarizer.insert(clean_whitespace(prompt));
-        }
-
-        for (const [i, prompt] of prompts.entries()) {
+        const tasks = prompts.map((prompt, i) => {
             const task = new Task(prompt, 'code');
-            task.status = statuses[i] as TaskStatus;
+            task.status = statuses[i];
             task.archived = is_archived[i];
-            this.tasks.push(task);
-        }
+            return task;
+        });
+        console.log(tasks);
+        this.tasks.push(...tasks);
 
         this.schedule_ui_repaint();
     }
@@ -573,8 +289,4 @@ export class RooSpawn {
                 break;
         }
     }
-}
-
-function clean_whitespace(str: string): string {
-    return str.replace(/\s+/g, ' ').trim();
 }

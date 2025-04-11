@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import { Cline, ClineProvider, HistoryItem } from './cline';
 import { Channel } from '../async_utils';
 import { MessagesTx, MessagesRx, Message, IClineController, ControllerEvents } from '../cline_controller';
-import { Task, Tasks } from '../roospawn';
+import { Task, Tasks } from '../tasks';
 
 export interface ControllingTrackerParams {
     channel: MessagesTx;
