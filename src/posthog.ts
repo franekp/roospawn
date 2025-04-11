@@ -238,3 +238,35 @@ export function hooksCmdResult(
         num_stderr_chars: stderr.length
     });
 }
+
+/**
+ * Tracks when a Python API function is called
+ *
+ * @param functionName The name of the function being called
+ * @param args The arguments passed to the function
+ */
+export function pythonApiCall(functionName: string, metrics: Record<string, any>) {
+    capture(`python_api:${functionName}:call`, 1, metrics);
+}
+
+/**
+ * Tracks when a Python API function completes successfully
+ *
+ * @param functionName The name of the function that completed successfully
+ * @param duration The duration in milliseconds from function start until completion
+ * @param result The result of the function call (will be analyzed for metrics)
+ */
+export function pythonApiSuccess(functionName: string, duration: number) {
+    capture(`python_api:${functionName}:success`, 1, { duration });
+}
+
+/**
+ * Tracks when a Python API function throws an exception
+ *
+ * @param functionName The name of the function that threw the exception
+ * @param duration The duration in milliseconds from function start until the exception occurred
+ * @param error The error that occurred
+ */
+export function pythonApiException(functionName: string, duration: number) {
+    capture(`python_api:${functionName}:exception`, 1, { duration });
+}

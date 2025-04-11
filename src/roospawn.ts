@@ -504,6 +504,43 @@ export class RooSpawn {
     moveSelectedTasks(selectedTasks: string[], targetTask: string, position: 'before' | 'after') {
         this.tasks.move(selectedTasks, { taskId: targetTask, position });
     }
+
+    /**
+     * Handles PostHog events emitted from Python code
+     * This function is called by the Python code via the emitPosthogEvent API
+     *
+     * @param eventName The name of the event to emit
+     * @param data The data to include with the event
+     */
+    emitPosthogEvent(eventName: string, data: any): void {
+        // Extract the function name from the event name (format: python_api:{func_name}:call)
+        const match = eventName.match(/^python_api:(.+?):(call|success|exception)$/);
+        if (!match) {
+            this.outputChannel.appendLine(`Invalid PostHog event name: ${eventName}`);
+            return;
+        }
+        
+        const functionName = match[1];
+        const eventType = match[2];
+        
+        switch (eventType) {
+            case 'call':
+                const metrics = {};
+                for (const key of data) {
+                    const value = data.get(key);
+                    console.log(key, value);
+                    metrics[key] = value;
+                }
+                posthog.pythonApiCall(functionName, metrics);
+                break;
+            case 'success':
+                posthog.pythonApiSuccess(functionName, data.duration ?? 0);
+                break;
+            case 'exception':
+                posthog.pythonApiException(functionName, data.duration ?? 0);
+                break;
+        }
+    }
 }
 
 function clean_whitespace(str: string): string {
