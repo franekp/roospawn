@@ -1,4 +1,3 @@
-import EventEmitter from 'events';
 import * as vscode from 'vscode';
 import { Watchdog } from './async_utils';
 import { IClineController, Message, MessagesRx } from './cline_controller';
@@ -56,7 +55,6 @@ export class Worker {
                 }
 
                 task.status = 'running';
-                this.tasks.emit('update');
 
                 // Abort tasks run in the controller, so we have a clean state when we start our new task.
                 await this.clineController.abortTaskStack();
@@ -69,7 +67,6 @@ export class Worker {
                 const hookResult = await task.runHook(isResuming ? 'onresume' : 'onstart');
                 if (hookResult.failed) {
                     task.status = 'error';
-                    this.tasks.emit('update');
                     continue;  // move on to the next task
                 }
                 
@@ -120,7 +117,6 @@ export class Worker {
                     taskLifecycle = new TaskLifecycle(task, channel);
                     task.taskLifecycle = taskLifecycle;
                     taskLifecycle.onStatusMessage = handleStatus;
-                    taskLifecycle.on('status', () => this.tasks.emit('update'));
 
                     // We don't await `runMessageHandler()`. Message handling is
                     // a separate "thread", independent from the RooSpawn task loop.
@@ -146,7 +142,6 @@ export class Worker {
             } catch (e) {
                 if (task !== undefined) {
                     task.status = 'error';
-                    this.tasks.emit('update');
                     console.error(`Error in RooSpawn task #${task.id}`, e);
                 } else {
                     console.error('Error in RooSpawn', e);
@@ -235,12 +230,11 @@ export class Worker {
     }
 }
 
-export class TaskLifecycle extends EventEmitter<TaskLifecycleEvent> {
+export class TaskLifecycle {
     private task: WeakRef<Task>;
     public onStatusMessage?: (status: 'completed' | 'aborted' | 'error') => Promise<'completed' | 'asking' | 'aborted' | 'error' | undefined>;
 
     constructor(task: Task, private readonly rx: MessagesRx) {
-        super();
         this.task = new WeakRef(task);
     }
 
@@ -278,10 +272,5 @@ export class TaskLifecycle extends EventEmitter<TaskLifecycleEvent> {
         if (task !== undefined) {
             task.status = status;
         }
-        this.emit('status', status);
     }
-}
-
-type TaskLifecycleEvent = {
-    status: [status: 'completed' | 'asking' | 'aborted' | 'error'];
 }

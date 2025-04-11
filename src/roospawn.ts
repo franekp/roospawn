@@ -20,8 +20,8 @@ export class Task {
     summary: string[];
     mode: string;
     hooks: Hooks | undefined;
-    status: TaskStatus = 'prepared';
-    archived: boolean = false;
+    private _status: TaskStatus = 'prepared';
+    private _archived: boolean = false;
     prev_attempts: TaskStatus[] = [];
 
     clineId?: string;
@@ -41,11 +41,32 @@ export class Task {
         this.summary = prompt_summarizer.summary(prompt, score, 65);
     }
 
+    get status(): TaskStatus {
+        return this._status;
+    }
+
+    set status(value: TaskStatus) {
+        if (this._status !== value) {
+            this._status = value;
+            roospawn?.tasks.emit('update');
+        }
+    }
+
+    get archived(): boolean {
+        return this._archived;
+    }
+
+    set archived(value: boolean) {
+        if (this._archived !== value) {
+            this._archived = value;
+            roospawn?.tasks.emit('update');
+        }
+    }
+
     submit(verbose: boolean = true) {
         switch (this.status) {
             case 'prepared':
                 this.status = 'queued';
-                roospawn?.tasks.emit('update');
                 break;
             case 'queued':
                 if (verbose) {
@@ -63,9 +84,7 @@ export class Task {
             case 'error': 
                 // resubmit task
                 this.prev_attempts.unshift(this.status);
-                
                 this.status = 'queued';
-                roospawn?.tasks.emit('update');
                 break;
         }
     }
@@ -79,7 +98,6 @@ export class Task {
                 break;
             case 'queued':
                 this.status = this.prev_attempts.shift() ?? 'prepared';
-                roospawn?.tasks.emit('update');
                 break;
             case 'running':
                 if (verbose) {
@@ -112,7 +130,6 @@ export class Task {
             case 'aborted':
             case 'error':
                 this.archived = true;
-                roospawn?.tasks.emit('update');
                 break;
             case 'queued':
                 vscode.window.showInformationMessage(`Cannot archive: task #${this.id} is already in queue ("${this.summary.join(' ... ')}")`);
@@ -131,7 +148,6 @@ export class Task {
             return;
         }
         this.archived = false;
-        roospawn?.tasks.emit('update');
     }
 
     conversation_as_json(): string {
