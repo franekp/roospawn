@@ -134,7 +134,7 @@ export class Task {
         switch (this.status) {
             case 'prepared':
             case 'completed':
-            case 'asking': 
+            case 'asking':
             case 'aborted':
             case 'error':
                 this.archived = true;

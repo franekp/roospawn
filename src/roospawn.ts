@@ -243,7 +243,6 @@ export class RooSpawn {
             task.archived = is_archived[i];
             return task;
         });
-        console.log(tasks);
         this.tasks.push(...tasks);
 
         this.schedule_ui_repaint();
