@@ -46,7 +46,13 @@ export class RooSpawn {
         this.rendererMessaging = vscode.notebooks.createRendererMessaging('roospawn-status-renderer');
         roospawn = this;
 
-        this.tasks.on('update', () => this.schedule_ui_repaint());
+        this.tasks.on('update', () => {
+            // Schedule UI repaint
+            this.schedule_ui_repaint();
+            
+            // Track task statuses after change
+            posthog.tasksTaskStatusesAfterLastChange(this.tasks);
+        });
         this.worker.run();
 
         this.rendererMessaging.onDidReceiveMessage(evt => {

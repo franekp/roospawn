@@ -14,6 +14,13 @@ export type TaskStatus =
     | 'completed' | 'asking' | 'aborted' | 'error'
     ;
 
+/**
+ * Array containing all possible task statuses
+ */
+export const ALL_TASK_STATUSES: TaskStatus[] = [
+    'prepared', 'queued', 'running', 'completed', 'asking', 'aborted', 'error'
+];
+
 export class Task {
     readonly id: string;
     prompt: string;

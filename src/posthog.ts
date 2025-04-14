@@ -2,7 +2,7 @@ import { PostHog } from "posthog-node";
 import { uuidv7 } from "uuidv7";
 import * as vscode from 'vscode';
 import { HookKind } from './hooks';
-import { TaskStatus } from './tasks';
+import { Tasks, TaskStatus, ALL_TASK_STATUSES } from './tasks';
 
 let posthog: PostHog | undefined;
 let distinctId: string | undefined;
@@ -305,4 +305,33 @@ export function tasksUnarchive(status: TaskStatus) {
     capture('tasks:unarchive', 1, {
         status
     });
+}
+
+/**
+ * Tracks the distribution of task statuses after a change
+ * This event provides counts of tasks in each status, including archived tasks
+ *
+ * @param tasks The Tasks instance containing all tasks
+ */
+export function tasksTaskStatusesAfterLastChange(tasks: Tasks) {
+    // Count tasks in each status
+    const counts: Record<string, number> = {};
+    
+    // Initialize all counters to 0
+    for (const status of ALL_TASK_STATUSES) {
+        counts[`${status}_cnt`] = 0;
+        counts[`arch_${status}_cnt`] = 0;
+    }
+    
+    // Count tasks by status and archived state
+    for (const task of tasks) {
+        const status: TaskStatus = task.status;
+        if (task.archived) {
+            counts[`arch_${status}_cnt`]++;
+        } else {
+            counts[`${status}_cnt`]++;
+        }
+    }
+    
+    capture('tasks:task_statuses_after_last_change', 1, counts);
 }
