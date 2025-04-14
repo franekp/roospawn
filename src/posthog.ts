@@ -2,6 +2,7 @@ import { PostHog } from "posthog-node";
 import { uuidv7 } from "uuidv7";
 import * as vscode from 'vscode';
 import { HookKind } from './hooks';
+import { TaskStatus } from './tasks';
 
 let posthog: PostHog | undefined;
 let distinctId: string | undefined;
@@ -269,4 +270,39 @@ export function pythonApiSuccess(functionName: string, duration: number) {
  */
 export function pythonApiException(functionName: string, duration: number) {
     capture(`python_api:${functionName}:exception`, 1, { duration });
+}
+
+/**
+ * Tracks when a task's status changes
+ *
+ * @param from The previous status of the task
+ * @param to The new status of the task
+ */
+export function tasksStatusChange(from: TaskStatus, to: TaskStatus) {
+    capture('tasks:status_change', 1, {
+        from,
+        to
+    });
+}
+
+/**
+ * Tracks when a task is archived
+ *
+ * @param status The status of the task when it was archived
+ */
+export function tasksArchive(status: TaskStatus) {
+    capture('tasks:archive', 1, {
+        status
+    });
+}
+
+/**
+ * Tracks when a task is unarchived
+ *
+ * @param status The status of the task when it was unarchived
+ */
+export function tasksUnarchive(status: TaskStatus) {
+    capture('tasks:unarchive', 1, {
+        status
+    });
 }

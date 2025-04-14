@@ -48,7 +48,9 @@ export class Task {
 
     set status(value: TaskStatus) {
         if (this._status !== value) {
+            const previousStatus = this._status;
             this._status = value;
+            posthog.tasksStatusChange(previousStatus, value);
             RooSpawn.get().tasks.emit('update');
         }
     }
@@ -60,6 +62,11 @@ export class Task {
     set archived(value: boolean) {
         if (this._archived !== value) {
             this._archived = value;
+            if (value) {
+                posthog.tasksArchive(this.status);
+            } else {
+                posthog.tasksUnarchive(this.status);
+            }
             RooSpawn.get().tasks.emit('update');
         }
     }
