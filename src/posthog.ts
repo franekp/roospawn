@@ -2,6 +2,7 @@ import { PostHog } from "posthog-node";
 import { uuidv7 } from "uuidv7";
 import * as vscode from 'vscode';
 import { HookKind } from './hooks';
+import { MessageFromRenderer } from './renderer_interface';
 import { Tasks, TaskStatus, ALL_TASK_STATUSES } from './tasks';
 
 let posthog: PostHog | undefined;
@@ -366,4 +367,64 @@ export function tasksMessageContainsToolCall(toolName: string, message: string) 
         num_lines,
         num_chars
     });
+}
+
+/**
+ * Tracks messages received from the renderer
+ *
+ * @param message The message received from the renderer
+ */
+export function rendererMessageReceived(message: MessageFromRenderer) {
+    // Extract message type
+    const messageType = message.type;
+    
+    // Create properties object with message type
+    const properties: Record<string, any> = {
+        message_type: messageType
+    };
+    
+    // Add metadata about parameters based on message type
+    switch (messageType) {
+        case 'submitTasks':
+        case 'cancelTasks':
+        case 'archiveTasks':
+        case 'unarchiveTasks':
+            properties['task_ids_count'] = message.taskIds?.length || 0;
+            break;
+        case 'moveSelectedTasks':
+            properties['selected_tasks_count'] = message.selectedTasks?.length || 0;
+            properties['position'] = message.position;
+            break;
+        case 'pauseWorker':
+        case 'resumeWorker':
+            // No additional parameters for these message types
+            break;
+        default:
+            // For unknown message types, capture all parameters with metadata
+            for (const [key, value] of Object.entries(message)) {
+                if (value === null || value === undefined) {
+                    properties[`${key}_type`] = 'null';
+                } else if (typeof value === 'boolean') {
+                    properties[`${key}_type`] = 'boolean';
+                    properties[`${key}_value`] = value;
+                } else if (typeof value === 'number') {
+                    properties[`${key}_type`] = 'number';
+                    properties[`${key}_value`] = value;
+                } else if (typeof value === 'string') {
+                    properties[`${key}_type`] = 'string';
+                    properties[`${key}_length`] = value.length;
+                } else if (Array.isArray(value)) {
+                    properties[`${key}_type`] = 'array';
+                    properties[`${key}_length`] = value.length;
+                } else if (typeof value === 'object') {
+                    properties[`${key}_type`] = 'object';
+                    properties[`${key}_keys`] = Object.keys(value).length;
+                } else {
+                    properties[`${key}_type`] = typeof value;
+                }
+            }
+            break;
+    }
+    
+    capture('renderer:message_received', 1, properties);
 }

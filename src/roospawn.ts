@@ -57,6 +57,8 @@ export class RooSpawn {
 
         this.rendererMessaging.onDidReceiveMessage(evt => {
             const msg = evt.message as MessageFromRenderer;
+            
+            posthog.rendererMessageReceived(msg);
 
             switch (msg.type) {
                 case 'resumeWorker':
