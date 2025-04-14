@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Watchdog } from './async_utils';
 import { IClineController, Message, MessagesRx } from './cline_controller';
+import * as posthog from './posthog';
 import { Task, Tasks } from './tasks';
 
 
@@ -258,6 +259,18 @@ export class TaskLifecycle {
                 }
             } else {
                 t.conversation.push(value);
+                
+                if (value.text) {
+                    posthog.tasksMessageAdd(value.text);
+                    
+                    if (value.type === 'say' && value.say === 'text') {
+                        const xmlToolMatch = value.text.match(/<(\w+)>.*?<\/\1>/);
+                        const toolName = xmlToolMatch?.[1];
+                        if (toolName) {
+                            posthog.tasksMessageContainsToolCall(toolName, xmlToolMatch[0]);
+                        }
+                    }
+                }
             }
         }
     }

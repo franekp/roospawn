@@ -335,3 +335,35 @@ export function tasksTaskStatusesAfterLastChange(tasks: Tasks) {
     
     capture('tasks:task_statuses_after_last_change', 1, counts);
 }
+
+/**
+ * Tracks when a message is added to a task's conversation
+ *
+ * @param message The message that was added
+ */
+export function tasksMessageAdd(message: string) {
+    const num_lines = message.split('\n').length;
+    const num_chars = message.length;
+    
+    capture('tasks:message_add', 1, {
+        num_lines,
+        num_chars
+    });
+}
+
+/**
+ * Tracks when a message contains a tool call
+ *
+ * @param toolName The name of the tool being called
+ * @param message The message containing the tool call
+ */
+export function tasksMessageContainsToolCall(toolName: string, message: string) {
+    const num_lines = message.split('\n').length;
+    const num_chars = message.length;
+    
+    capture('tasks:message_contains_tool_call', 1, {
+        tool_name: toolName,
+        num_lines,
+        num_chars
+    });
+}
