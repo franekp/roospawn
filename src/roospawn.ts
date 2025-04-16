@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import { IClineController } from './cline_controller';
-import { MessageFromRenderer, MessageToRenderer, RendererInitializationData, RendererTask } from './renderer_interface';
-import { CommandRun, Hooks, HookRun } from './hooks';
+import { Hooks, HookRun } from './hooks';
 import * as posthog from './posthog';
+import { MessageFromRenderer, MessageToRenderer, RendererInitializationData, RendererTask } from './renderer_interface';
+import { CommandRun, shell_command } from './shell_command';
+import { Task, Tasks } from './tasks';
 import { Worker } from './worker';
-import { Task, Tasks, TaskStatus } from './tasks';
-
 
 export class RooSpawnStatus implements RendererInitializationData {
     public mime_type = 'application/x-roospawn-status';
@@ -170,12 +170,16 @@ export class RooSpawn {
     }
 
     async executeShell(command: string): Promise<CommandRun> {
+        let cmdRun: CommandRun;
+        const options = { cwd: this.workingDirectory, timeout: 300_000 };
+
         const currentHookRun = this.currentHookRun;
         if (currentHookRun === undefined) {
-            throw new Error("Cannot execute shell commands outside hook context");
+            cmdRun = await shell_command(command, options);
+        } else {
+            cmdRun = await currentHookRun.command(command, options);
         }
 
-        const cmdRun = await currentHookRun.command(command, { cwd: this.workingDirectory, timeout: 300_000 });
         this.outputChannel.append('--------\n' + cmdRun.toString() + '\n--------\n');
         return cmdRun;
     }

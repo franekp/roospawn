@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { HookKind } from './hooks';
 import { MessageFromRenderer } from './renderer_interface';
 import { Tasks, TaskStatus, ALL_TASK_STATUSES } from './tasks';
+import { CommandRun } from "./shell_command";
 
 let posthog: PostHog | undefined;
 let distinctId: string | undefined;
@@ -199,7 +200,7 @@ export function hooksPySuccess(hook: HookKind, duration: number) {
  */
 export function hooksCmdStart(hook: HookKind, command: string) {
     // Count the number of commands (split by newline, semicolon)
-    const num_commands = command.split(/(((?<!\\)\n)|;|&&|\|\|)/).filter(cmd => cmd.trim().length > 0).length;
+    const num_commands = command.split(/(?:(?<!\\)\n)|;|&&|\|\|/).filter(cmd => cmd.trim().length > 0).length;
     
     // Count the number of characters
     const num_chars = command.length;
@@ -223,21 +224,15 @@ export function hooksCmdStart(hook: HookKind, command: string) {
  * @param stdout The command's stdout output
  * @param stderr The command's stderr output
  */
-export function hooksCmdResult(
-    hook: HookKind,
-    success: boolean,
-    duration: number,
-    stdout: string,
-    stderr: string
-) {
-    const eventType = success ? 'success' : 'failure';
+export function hooksCmdResult(hook: HookKind, commandRun: CommandRun) {
+    const eventType = commandRun.exitCode === 0 ? 'success' : 'failure';
     
     capture(`hooks:${hook}_cmd_${eventType}`, 1, {
-        duration,
-        num_stdout_lines: stdout.split('\n').length,
-        num_stderr_lines: stderr.split('\n').length,
-        num_stdout_chars: stdout.length,
-        num_stderr_chars: stderr.length
+        duration: commandRun.finishedTimestamp - commandRun.startedTimestamp,
+        num_stdout_lines: commandRun.stdout.split('\n').length,
+        num_stderr_lines: commandRun.stderr.split('\n').length,
+        num_stdout_chars: commandRun.stdout.length,
+        num_stderr_chars: commandRun.stderr.length
     });
 }
 

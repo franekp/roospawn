@@ -51,10 +51,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
         notebookController
     );
 
-    // Register hello world command
-    const disposable = vscode.commands.registerCommand('roospawn.helloWorld', async () => {
-        outputChannel.appendLine('Hello World from RooSpawn!');
-        vscode.window.showInformationMessage('Hello World from RooSpawn!');
+    // Register new notebook command
+    const disposable = vscode.commands.registerCommand('roospawn.newNotebook', async () => {
+        // Create a new untitled notebook document with the roospawn notebook type
+        const notebookData = new vscode.NotebookData([
+            new vscode.NotebookCellData(
+                vscode.NotebookCellKind.Markup,
+                '# RooSpawn Notebook\n\nUse this notebook to interact with RooSpawn.\nPlease, remember to set proper working directory below.',
+                'markdown'
+            ),
+            new vscode.NotebookCellData(
+                vscode.NotebookCellKind.Code,
+                INITIAL_NOTEBOOK_CODE,
+                'python'
+            ),
+            new vscode.NotebookCellData(
+                vscode.NotebookCellKind.Code,
+                'tasks = rsp.submit_tasks(["Calculate 3+3", "Writer Fibbonacii function in JavaScript"], mode="code")',
+                'python'
+            ),
+        ]);
+        
+        const notebook = await vscode.workspace.openNotebookDocument('roospawn', notebookData);
+        
+        // Show the notebook document in the editor
+        await vscode.window.showNotebookDocument(notebook);
     });
 
     context.subscriptions.push(disposable);
@@ -67,3 +88,30 @@ export async function deactivate() {
     posthog.extensionDeactivating();
     await posthog.deactivate();
 }
+
+const INITIAL_NOTEBOOK_CODE = `import roospawn as rsp
+
+rsp.working_directory("-put-cwd-for-hooks-here-")
+
+last_successful_commit = (await rsp.execute_shell("git symbolic-ref --short HEAD || git rev-parse HEAD")).stdout.strip()
+
+@rsp.onstart
+async def onstart(task):
+    return f"git checkout -b rsp-task-{task.id}"
+
+@rsp.oncomplete
+def oncomplete(task):
+    global last_successful_commit
+    last_successful_commit = f"rsp-task-{task.id}"
+    return f"git add -A; git diff-index --quiet HEAD || git commit --no-gpg-sign -m 'Task {task.id} completed'"
+
+@rsp.onpause
+def onpause(task):
+    return f"git add -A; git diff-index --quiet HEAD || git commit --no-gpg-sign -m 'Task {task.id} paused'; git checkout {last_successful_commit}"
+
+@rsp.onresume
+def onresume(task):
+    return f"git checkout rsp-task-{task.id}"
+
+rsp.live_preview()
+`;

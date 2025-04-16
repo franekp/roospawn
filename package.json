@@ -3,6 +3,7 @@
   "publisher": "roospawn",
   "displayName": "RooSpawn",
   "description": "",
+  "repository": "github:franekp/roospawn",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.88.0"
@@ -17,8 +18,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "roospawn.helloWorld",
-        "title": "RooSpawn: Hello World"
+        "command": "roospawn.newNotebook",
+        "title": "RooSpawn: New notebook"
       }
     ],
     "notebooks": [
