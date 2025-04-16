@@ -28,7 +28,7 @@
         "displayName": "RooSpawn Notebook",
         "selector": [
           {
-            "filenamePattern": "*.dozer"
+            "filenamePattern": "*.roospawn"
           }
         ]
       }

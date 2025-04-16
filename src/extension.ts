@@ -113,5 +113,4 @@ def onpause(task):
 def onresume(task):
     return f"git checkout rsp-task-{task.id}"
 
-rsp.live_preview()
-`;
+rsp.live_preview()`;
