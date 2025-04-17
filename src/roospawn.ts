@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { IClineController } from './cline_controller';
 import { Hooks, HookRun } from './hooks';
-import * as posthog from './posthog';
 import { MessageFromRenderer, MessageToRenderer, RendererInitializationData, RendererTask } from './renderer_interface';
 import { CommandRun, shell_command } from './shell_command';
 import { Task, Tasks } from './tasks';
+import * as telemetry from './telemetry';
 import { Worker } from './worker';
 
 export class RooSpawnStatus implements RendererInitializationData {
@@ -51,14 +51,14 @@ export class RooSpawn {
             this.schedule_ui_repaint();
             
             // Track task statuses after change
-            posthog.tasksTaskStatusesAfterLastChange(this.tasks);
+            telemetry.tasksTaskStatusesAfterLastChange(this.tasks);
         });
         this.worker.run();
 
         this.rendererMessaging.onDidReceiveMessage(evt => {
             const msg = evt.message as MessageFromRenderer;
             
-            posthog.rendererMessageReceived(msg);
+            telemetry.rendererMessageReceived(msg);
 
             switch (msg.type) {
                 case 'resumeWorker':
@@ -290,13 +290,13 @@ export class RooSpawn {
                     console.log(key, value);
                     metrics[key] = value;
                 }
-                posthog.pythonApiCall(functionName, metrics);
+                telemetry.pythonApiCall(functionName, metrics);
                 break;
             case 'success':
-                posthog.pythonApiSuccess(functionName, data.duration ?? 0);
+                telemetry.pythonApiSuccess(functionName, data.duration ?? 0);
                 break;
             case 'exception':
-                posthog.pythonApiException(functionName, data.duration ?? 0);
+                telemetry.pythonApiException(functionName, data.duration ?? 0);
                 break;
         }
     }

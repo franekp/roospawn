@@ -3,10 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
 import { Message, MessagesTx } from './cline_controller';
 import { Hooks, HookKind, HookRun } from './hooks';
-import * as posthog from './posthog';
 import { PromptSummarizer } from './prompt_summarizer';
 import { RendererTask } from './renderer_interface';
 import { RooSpawn } from './roospawn';
+import * as telemetry from './telemetry';
 import { TaskLifecycle } from './worker';
 
 export type TaskStatus =
@@ -57,7 +57,7 @@ export class Task {
         if (this._status !== value) {
             const previousStatus = this._status;
             this._status = value;
-            posthog.tasksStatusChange(previousStatus, value);
+            telemetry.tasksStatusChange(previousStatus, value);
             RooSpawn.get().tasks.emit('update');
         }
     }
@@ -70,9 +70,9 @@ export class Task {
         if (this._archived !== value) {
             this._archived = value;
             if (value) {
-                posthog.tasksArchive(this.status);
+                telemetry.tasksArchive(this.status);
             } else {
-                posthog.tasksUnarchive(this.status);
+                telemetry.tasksUnarchive(this.status);
             }
             RooSpawn.get().tasks.emit('update');
         }
@@ -179,7 +179,7 @@ export class Task {
             throw new Error('Running hook when the previous one has not finished yet');
         }
 
-        posthog.hooksPyStart(hook);
+        telemetry.hooksPyStart(hook);
 
         const hookFunc = this.hooks?.[hook] ?? rsp.globalHooks[hook];
         if (hookFunc === undefined) {
@@ -198,7 +198,7 @@ export class Task {
             hookRun.failed = true;
             rsp.currentHookRun = undefined;
             
-            posthog.hooksPyException(hook, Date.now() - hookRun.timestamp);
+            telemetry.hooksPyException(hook, Date.now() - hookRun.timestamp);
             
             return hookRun;
         }
@@ -214,7 +214,7 @@ export class Task {
 
         rsp.currentHookRun = undefined;
         
-        posthog.hooksPySuccess(hook, Date.now() - hookRun.timestamp);
+        telemetry.hooksPySuccess(hook, Date.now() - hookRun.timestamp);
         
         return hookRun;
     }

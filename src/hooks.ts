@@ -1,7 +1,7 @@
 import { ExecOptions } from "child_process";
-import * as posthog from './posthog';
 import { CommandRun, shell_command } from "./shell_command";
 import { Task } from "./tasks";
+import * as telemetry from './telemetry';
 
 export type HookKind = 'onstart' | 'oncomplete' | 'onpause' | 'onresume';
 
@@ -29,12 +29,12 @@ export class HookRun {
     }
 
     async command(command: string, options: ExecOptions): Promise<CommandRun> {
-        posthog.hooksCmdStart(this.kind, command);
+        telemetry.hooksCmdStart(this.kind, command);
 
         const commandRun = await shell_command(command, options);
 
         this.commands.push(commandRun);
-        posthog.hooksCmdResult(this.kind, commandRun);
+        telemetry.hooksCmdResult(this.kind, commandRun);
         
         return commandRun;
     }

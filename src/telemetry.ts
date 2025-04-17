@@ -6,63 +6,95 @@ import { MessageFromRenderer } from './renderer_interface';
 import { Tasks, TaskStatus, ALL_TASK_STATUSES } from './tasks';
 import { CommandRun } from "./shell_command";
 
-let posthog: PostHog | undefined;
-let distinctId: string | undefined;
-let rooSpawnVersion: string | undefined;
-let rooCodeVersion: string | undefined;
+export class TelemetryCollector {
+    private static instance?: TelemetryCollector;
 
-export async function activate(context: vscode.ExtensionContext) {
-    if (context.extensionMode === vscode.ExtensionMode.Test) {
-        return;
+    private posthog?: PostHog;
+    private distinctId: string;
+    private rooSpawnVersion: string;
+    private rooCodeVersion: string;
+
+    private constructor(context: vscode.ExtensionContext, distinctIdUpdatedCallback: () => void) {
+        this.distinctId = context.globalState.get('rooSpawn.analytics.userId');
+        if (!this.distinctId) {
+            this.distinctId = uuidv7();
+            context.globalState.update('rooSpawn.analytics.userId', this.distinctId).then(distinctIdUpdatedCallback);
+        }
+
+        this.rooSpawnVersion = context.extension.packageJSON.version;
+        const rooCodeExtension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
+        this.rooCodeVersion = rooCodeExtension.packageJSON.version;
+
+        TelemetryCollector.instance = this;
+
+        context.subscriptions.push(vscode.env.onDidChangeTelemetryEnabled(enabled => this.handleTelemetryEnabledChange(enabled)));
+        this.handleTelemetryEnabledChange(vscode.env.isTelemetryEnabled);
     }
 
-    posthog = new PostHog('phc_JDmKFHRApOzVBnp2j5Jor7KWFyMRzHdg2QmlGd1fUP8', { host: 'https://eu.i.posthog.com' });
+    static async init(context: vscode.ExtensionContext) {
+        if (TelemetryCollector.instance) {
+            return;
+        }
 
-    distinctId = context.globalState.get('rooSpawn.analytics.userId');
-    if (!distinctId) {
-        distinctId = uuidv7();
-        await context.globalState.update('rooSpawn.analytics.userId', distinctId);
+        await new Promise<void>(resolve => new TelemetryCollector(context, resolve));
     }
 
-    rooSpawnVersion = context.extension.packageJSON.version;
-    const rooCodeExtension = vscode.extensions.getExtension('rooveterinaryinc.roo-cline');
-    rooCodeVersion = rooCodeExtension.packageJSON.version;
-}
-
-export async function deactivate() {
-    await posthog?.shutdown(2000);
-}
-
-function capture(event: string, version: number, data: Record<string, any>) {
-    if (!posthog || !distinctId) {
-        return;
+    static async dispose() {
+        await TelemetryCollector.instance?.disposePosthog();
     }
 
-    let properties: Record<string, any> = {
-        $process_person_profile: false,
-        event_v: version,
-        ...data,
-    };
 
-    if (rooSpawnVersion !== undefined) {
-        properties['roospawn_v'] = rooSpawnVersion;
+    static capture(event: string, version: number, data: Record<string, any>) {
+        const instance = TelemetryCollector.instance;
+        const posthog = instance?.posthog;
+        if (!posthog) {
+            return;
+        }
+    
+        let properties: Record<string, any> = {
+            $process_person_profile: false,
+            event_v: version,
+            ...data,
+        };
+    
+        if (instance.rooSpawnVersion !== undefined) {
+            properties['roospawn_v'] = instance.rooSpawnVersion;
+        }
+    
+        if (instance.rooCodeVersion !== undefined) {
+            properties['roocode_v'] = instance.rooCodeVersion;
+        }
+    
+        posthog.capture({ distinctId: instance.distinctId, event, properties });
     }
 
-    if (rooCodeVersion !== undefined) {
-        properties['roocode_v'] = rooCodeVersion;
+    private handleTelemetryEnabledChange(enabled: boolean) {
+        if (this.posthog === undefined && enabled) {
+            this.initPosthog();
+        } else if (this.posthog !== undefined && !enabled) {
+            this.disposePosthog();
+        }
     }
 
-    posthog.capture({ distinctId, event, properties });
+    private initPosthog() {
+        this.posthog = new PostHog('phc_JDmKFHRApOzVBnp2j5Jor7KWFyMRzHdg2QmlGd1fUP8', { host: 'https://eu.i.posthog.com' });
+    }
+
+    private async disposePosthog() {
+        const posthog = this.posthog;
+        this.posthog = undefined;
+        await posthog?.shutdown(2000);
+    }
 }
 
 // Events
 
 export function extensionActivated() {
-    capture('extension:activated', 1, {});
+    TelemetryCollector.capture('extension:activated', 1, {});
 }
 
 export function extensionDeactivating() {
-    capture('extension:deactivating', 1, {});
+    TelemetryCollector.capture('extension:deactivating', 1, {});
 }
 
 /**
@@ -84,7 +116,7 @@ export function notebookCellExecStart(code: string) {
     const async_cnt = (code.match(/\basync\s+/g) || []).length;
     const decor_cnt = (code.match(/@\w+/g) || []).length;
     
-    capture('notebook:cell_exec_start', 1, {
+    TelemetryCollector.capture('notebook:cell_exec_start', 1, {
         num_lines,
         num_chars,
         def_cnt,
@@ -104,7 +136,7 @@ export function notebookCellExecStart(code: string) {
  * @param duration The execution duration in milliseconds
  */
 export function notebookCellExecSuccess(duration: number) {
-    capture('notebook:cell_exec_success', 1, {
+    TelemetryCollector.capture('notebook:cell_exec_success', 1, {
         duration,
         language: "python"
     });
@@ -116,7 +148,7 @@ export function notebookCellExecSuccess(duration: number) {
  * @param duration The execution duration in milliseconds
  */
 export function notebookCellExecException(duration: number) {
-    capture('notebook:cell_exec_exception', 1, {
+    TelemetryCollector.capture('notebook:cell_exec_exception', 1, {
         duration,
         language: "python"
     });
@@ -129,7 +161,7 @@ export function notebookCellExecException(duration: number) {
  * @param duration The execution duration in milliseconds
  */
 export function notebookCellExecInternalError(duration: number) {
-    capture('notebook:cell_exec_internal_error', 1, {
+    TelemetryCollector.capture('notebook:cell_exec_internal_error', 1, {
         duration,
         language: "python"
     });
@@ -142,7 +174,7 @@ export function notebookCellExecInternalError(duration: number) {
  * @param elapsedTime The elapsed execution time in milliseconds
  */
 export function notebookCellExec10sElapsed(elapsedTime: number) {
-    capture('notebook:cell_exec_10s_elapsed', 1, {
+    TelemetryCollector.capture('notebook:cell_exec_10s_elapsed', 1, {
         elapsed_time: elapsedTime,
         language: "python"
     });
@@ -154,7 +186,7 @@ export function notebookCellExec10sElapsed(elapsedTime: number) {
  * @param duration The duration of the loading attempt in milliseconds before it failed
  */
 export function notebookPyodideLoadingFailed(duration: number) {
-    capture('notebook:pyodide_loading_failed', 1, {
+    TelemetryCollector.capture('notebook:pyodide_loading_failed', 1, {
         duration
     });
 }
@@ -165,7 +197,7 @@ export function notebookPyodideLoadingFailed(duration: number) {
  * @param hook The hook type that is being executed (onstart, onpause, onresume, oncomplete)
  */
 export function hooksPyStart(hook: HookKind) {
-    capture(`hooks:${hook}_py_start`, 1, {});
+    TelemetryCollector.capture(`hooks:${hook}_py_start`, 1, {});
 }
 
 /**
@@ -175,7 +207,7 @@ export function hooksPyStart(hook: HookKind) {
  * @param duration The duration in milliseconds from hook start until the exception occurred
  */
 export function hooksPyException(hook: HookKind, duration: number) {
-    capture(`hooks:${hook}_py_exception`, 1, {
+    TelemetryCollector.capture(`hooks:${hook}_py_exception`, 1, {
         duration
     });
 }
@@ -187,7 +219,7 @@ export function hooksPyException(hook: HookKind, duration: number) {
  * @param duration The duration in milliseconds from hook start until completion
  */
 export function hooksPySuccess(hook: HookKind, duration: number) {
-    capture(`hooks:${hook}_py_success`, 1, {
+    TelemetryCollector.capture(`hooks:${hook}_py_success`, 1, {
         duration
     });
 }
@@ -208,7 +240,7 @@ export function hooksCmdStart(hook: HookKind, command: string) {
     // Count git commands
     const num_git_commands = (command.match(/\bgit\s+/g) || []).length;
     
-    capture(`hooks:${hook}_cmd_start`, 1, {
+    TelemetryCollector.capture(`hooks:${hook}_cmd_start`, 1, {
         num_commands,
         num_chars,
         num_git_commands
@@ -227,7 +259,7 @@ export function hooksCmdStart(hook: HookKind, command: string) {
 export function hooksCmdResult(hook: HookKind, commandRun: CommandRun) {
     const eventType = commandRun.exitCode === 0 ? 'success' : 'failure';
     
-    capture(`hooks:${hook}_cmd_${eventType}`, 1, {
+    TelemetryCollector.capture(`hooks:${hook}_cmd_${eventType}`, 1, {
         duration: commandRun.finishedTimestamp - commandRun.startedTimestamp,
         num_stdout_lines: commandRun.stdout.split('\n').length,
         num_stderr_lines: commandRun.stderr.split('\n').length,
@@ -243,7 +275,7 @@ export function hooksCmdResult(hook: HookKind, commandRun: CommandRun) {
  * @param args The arguments passed to the function
  */
 export function pythonApiCall(functionName: string, metrics: Record<string, any>) {
-    capture(`python_api:${functionName}:call`, 1, metrics);
+    TelemetryCollector.capture(`python_api:${functionName}:call`, 1, metrics);
 }
 
 /**
@@ -254,7 +286,7 @@ export function pythonApiCall(functionName: string, metrics: Record<string, any>
  * @param result The result of the function call (will be analyzed for metrics)
  */
 export function pythonApiSuccess(functionName: string, duration: number) {
-    capture(`python_api:${functionName}:success`, 1, { duration });
+    TelemetryCollector.capture(`python_api:${functionName}:success`, 1, { duration });
 }
 
 /**
@@ -265,7 +297,7 @@ export function pythonApiSuccess(functionName: string, duration: number) {
  * @param error The error that occurred
  */
 export function pythonApiException(functionName: string, duration: number) {
-    capture(`python_api:${functionName}:exception`, 1, { duration });
+    TelemetryCollector.capture(`python_api:${functionName}:exception`, 1, { duration });
 }
 
 /**
@@ -275,7 +307,7 @@ export function pythonApiException(functionName: string, duration: number) {
  * @param to The new status of the task
  */
 export function tasksStatusChange(from: TaskStatus, to: TaskStatus) {
-    capture('tasks:status_change', 1, {
+    TelemetryCollector.capture('tasks:status_change', 1, {
         from,
         to
     });
@@ -287,7 +319,7 @@ export function tasksStatusChange(from: TaskStatus, to: TaskStatus) {
  * @param status The status of the task when it was archived
  */
 export function tasksArchive(status: TaskStatus) {
-    capture('tasks:archive', 1, {
+    TelemetryCollector.capture('tasks:archive', 1, {
         status
     });
 }
@@ -298,7 +330,7 @@ export function tasksArchive(status: TaskStatus) {
  * @param status The status of the task when it was unarchived
  */
 export function tasksUnarchive(status: TaskStatus) {
-    capture('tasks:unarchive', 1, {
+    TelemetryCollector.capture('tasks:unarchive', 1, {
         status
     });
 }
@@ -329,7 +361,7 @@ export function tasksTaskStatusesAfterLastChange(tasks: Tasks) {
         }
     }
     
-    capture('tasks:task_statuses_after_last_change', 1, counts);
+    TelemetryCollector.capture('tasks:task_statuses_after_last_change', 1, counts);
 }
 
 /**
@@ -341,7 +373,7 @@ export function tasksMessageAdd(message: string) {
     const num_lines = message.split('\n').length;
     const num_chars = message.length;
     
-    capture('tasks:message_add', 1, {
+    TelemetryCollector.capture('tasks:message_add', 1, {
         num_lines,
         num_chars
     });
@@ -357,7 +389,7 @@ export function tasksMessageContainsToolCall(toolName: string, message: string) 
     const num_lines = message.split('\n').length;
     const num_chars = message.length;
     
-    capture('tasks:message_contains_tool_call', 1, {
+    TelemetryCollector.capture('tasks:message_contains_tool_call', 1, {
         tool_name: toolName,
         num_lines,
         num_chars
@@ -421,5 +453,5 @@ export function rendererMessageReceived(message: MessageFromRenderer) {
             break;
     }
     
-    capture('renderer:message_received', 1, properties);
+    TelemetryCollector.capture('renderer:message_received', 1, properties);
 }

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { Watchdog } from './async_utils';
 import { IClineController, Message, MessagesRx } from './cline_controller';
-import * as posthog from './posthog';
 import { Task, Tasks } from './tasks';
+import * as telemetry from './telemetry';
 
 
 export class Worker {
@@ -261,13 +261,13 @@ export class TaskLifecycle {
                 t.conversation.push(value);
                 
                 if (value.text) {
-                    posthog.tasksMessageAdd(value.text);
+                    telemetry.tasksMessageAdd(value.text);
                     
                     if (value.type === 'say' && value.say === 'text') {
                         const xmlToolMatch = value.text.match(/<(\w+)>.*?<\/\1>/);
                         const toolName = xmlToolMatch?.[1];
                         if (toolName) {
-                            posthog.tasksMessageContainsToolCall(toolName, xmlToolMatch[0]);
+                            telemetry.tasksMessageContainsToolCall(toolName, xmlToolMatch[0]);
                         }
                     }
                 }

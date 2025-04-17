@@ -4,9 +4,9 @@ import process from 'process';
 import { loadPyodide, type PyodideInterface } from 'pyodide';
 import * as vscode from 'vscode';
 import { Channel } from './async_utils';
-import * as posthog from './posthog';
 import { RendererInitializationData } from './renderer_interface';
 import { RooSpawn, RooSpawnStatus } from './roospawn';
+import * as telemetry from './telemetry';
 
 export class PyNotebookController {
     readonly controllerId = 'roospawn-controller';
@@ -115,7 +115,7 @@ export class PyNotebookController {
             return pyodide;
         } catch (error) {
             this._outputChannel.appendLine(`Failed to initialize Pyodide: ${JSON.stringify(error)}`);
-            posthog.notebookPyodideLoadingFailed(Date.now() - initStartTime);
+            telemetry.notebookPyodideLoadingFailed(Date.now() - initStartTime);
             vscode.window.showErrorMessage('Failed to initialize RooSpawn Python kernel.');
             
             throw error;
@@ -134,12 +134,12 @@ export class PyNotebookController {
         this._current_output = output;
         this._current_execution = execution;
         
-        let intervalId = setInterval(() => posthog.notebookCellExec10sElapsed(Date.now() - startTime), 10_000);
+        let intervalId = setInterval(() => telemetry.notebookCellExec10sElapsed(Date.now() - startTime), 10_000);
 
         try {
             const code = cell.document.getText();
             
-            posthog.notebookCellExecStart(code);
+            telemetry.notebookCellExecStart(code);
 
             pyodide.loadPackagesFromImports(code);
 
@@ -151,7 +151,7 @@ export class PyNotebookController {
             const endTime = Date.now();
             execution.end(true, endTime);
             
-            posthog.notebookCellExecSuccess(endTime - startTime);
+            telemetry.notebookCellExecSuccess(endTime - startTime);
         } catch (error) {
             this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
 
@@ -167,9 +167,9 @@ export class PyNotebookController {
 
             const isPythonException = errorObject instanceof pyodide.ffi.PythonError;
             if (isPythonException) {
-                posthog.notebookCellExecException(endTime - startTime);
+                telemetry.notebookCellExecException(endTime - startTime);
             } else {
-                posthog.notebookCellExecInternalError(endTime - startTime);
+                telemetry.notebookCellExecInternalError(endTime - startTime);
             }
         } finally {
             this._current_output = undefined;

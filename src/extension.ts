@@ -6,15 +6,15 @@ import { ClineController as ClineController_3_8_4 } from './controller-3.8.4/cli
 import { ClineController as ClineController_3_8_6 } from './controller-3.8.6-dev/cline_controller';
 import { ClineController as ClineController_3_11_9 } from './controller-3.11.9/cline_controller';
 import { RooSpawnSerializer } from './notebook_serializer';
-import * as posthog from './posthog';
 import { PyNotebookController } from './py_notebook_controller';
 import { RooSpawn } from './roospawn';
 import { Task, Tasks } from './tasks';
+import * as telemetry from './telemetry';
 
 export { RooSpawn, Task };
 
 export async function activate(context: vscode.ExtensionContext): Promise<RooSpawn> {
-    await posthog.activate(context);
+    await telemetry.TelemetryCollector.init(context);
     
     const outputChannel = vscode.window.createOutputChannel('RooSpawn');
     outputChannel.appendLine('RooSpawn extension is now running!');
@@ -80,13 +80,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
 
     context.subscriptions.push(disposable);
 
-    posthog.extensionActivated();
+    telemetry.extensionActivated();
     return rooSpawn;
 }
 
 export async function deactivate() {
-    posthog.extensionDeactivating();
-    await posthog.deactivate();
+    telemetry.extensionDeactivating();
+    await telemetry.TelemetryCollector.dispose();
 }
 
 const INITIAL_NOTEBOOK_CODE = `import roospawn as rsp
