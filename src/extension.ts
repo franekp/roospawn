@@ -10,11 +10,12 @@ import { PyNotebookController } from './py_notebook_controller';
 import { RooSpawn } from './roospawn';
 import { Task, Tasks } from './tasks';
 import * as telemetry from './telemetry';
+import { timeout } from './async_utils';
 
 export { RooSpawn, Task };
 
 export async function activate(context: vscode.ExtensionContext): Promise<RooSpawn> {
-    await telemetry.TelemetryCollector.init(context);
+    await timeout(5000, telemetry.TelemetryCollector.init(context));
     
     const outputChannel = vscode.window.createOutputChannel('RooSpawn');
     outputChannel.appendLine('RooSpawn extension is now running!');
@@ -86,7 +87,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
 
 export async function deactivate() {
     telemetry.extensionDeactivating();
-    await telemetry.TelemetryCollector.dispose();
+    await timeout(5000, telemetry.TelemetryCollector.dispose());
 }
 
 const INITIAL_NOTEBOOK_CODE = `import roospawn as rsp
