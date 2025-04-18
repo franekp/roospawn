@@ -34,7 +34,7 @@ export class RooSpawn {
     currentHookRun?: HookRun;
 
     private worker: Worker;
-    public workingDirectory: string = process.cwd();
+    public workingDirectory?: string;
 
     constructor(
         private readonly extensionContext: vscode.ExtensionContext,

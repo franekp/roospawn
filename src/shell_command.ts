@@ -1,6 +1,8 @@
+import * as vscode from 'vscode';
 import { exec, ExecException, ExecOptions } from "child_process";
 
 export function shell_command(command: string, options: ExecOptions): Promise<CommandRun> {
+    options.cwd ??= vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     return new Promise(resolve => {
         console.log(`Executing command: ${command}`);
         const started = Date.now();

@@ -92,8 +92,6 @@ export async function deactivate() {
 
 const INITIAL_NOTEBOOK_CODE = `import roospawn as rsp
 
-rsp.working_directory("-put-cwd-for-hooks-here-")
-
 last_successful_commit = (await rsp.execute_shell("git symbolic-ref --short HEAD || git rev-parse HEAD")).stdout.strip()
 
 @rsp.onstart
