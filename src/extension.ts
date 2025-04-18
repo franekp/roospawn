@@ -68,7 +68,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RooSpa
             ),
             new vscode.NotebookCellData(
                 vscode.NotebookCellKind.Code,
-                'tasks = rsp.submit_tasks(["Calculate 3+3", "Writer Fibbonacii function in JavaScript"], mode="code")',
+                'tasks = rsp.submit_tasks([f"Write {func} function in Javascript" for func in ["Fibbonacii", "Factorial", "FizzBuzz"]], mode="code")',
                 'python'
             ),
         ]);
