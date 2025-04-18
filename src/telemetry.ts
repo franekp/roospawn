@@ -19,6 +19,8 @@ export class TelemetryCollector {
         if (!this.distinctId) {
             this.distinctId = uuidv7();
             context.globalState.update('rooSpawn.analytics.userId', this.distinctId).then(distinctIdUpdatedCallback);
+        } else {
+            distinctIdUpdatedCallback();
         }
 
         this.rooSpawnVersion = context.extension.packageJSON.version;
