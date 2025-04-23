@@ -8,7 +8,7 @@ from typing import Any, Callable, Coroutine, Dict, Optional, TypeVar, cast
 
 
 T = TypeVar('T')
-def track_api_call(func: Callable[..., T]) -> Callable[..., T]:
+def _track_api_call(func: Callable[..., T]) -> Callable[..., T]:
     """
     Decorator that tracks API calls to PostHog.
     It emits three types of events:
@@ -65,47 +65,49 @@ def track_api_call(func: Callable[..., T]) -> Callable[..., T]:
     
     return cast(Callable[..., T], wrapper)
 
+CommandRun = api.CommandRun
+
 class Task:
     def __init__(self, task):
         self._task = task
 
     @property
-    @track_api_call
+    @_track_api_call
     def id(self):
         return self._task.id
 
     @property
-    @track_api_call
+    @_track_api_call
     def status(self):
         return self._task.status
 
     @property
-    @track_api_call
+    @_track_api_call
     def prompt(self):
         return self._task.prompt
     
     @property
-    @track_api_call
+    @_track_api_call
     def mode(self):
         return self._task.mode
 
-    @track_api_call
+    @_track_api_call
     def __repr__(self):
         return f"Task(id={repr(self.id)}, prompt={repr(self.prompt)}, status={repr(self.status)})"
 
-    @track_api_call
+    @_track_api_call
     def submit(self):
         self._task.submit()
 
-    @track_api_call
+    @_track_api_call
     def cancel(self):
         self._task.cancel()
 
-    @track_api_call
+    @_track_api_call
     def archive(self):
         self._task.archive()
 
-    @track_api_call
+    @_track_api_call
     def unarchive(self):
         self._task.unarchive()
 
@@ -118,11 +120,11 @@ def _clone_hook_proxy(hook: Optional[pyodide.ffi.JsDoubleProxy]) -> Optional[pyo
 
 
 class Hooks:
-    @track_api_call
+    @_track_api_call
     def __init__(self, hooks):
         self._hooks = hooks
 
-    @track_api_call
+    @_track_api_call
     def override(self, onstart = None, oncomplete = None, onpause = None, onresume = None):
         def make_hook(hook, default):
             if hook is None:
@@ -137,68 +139,69 @@ class Hooks:
 
         return Hooks(api.createHooks(onstart, oncomplete, onpause, onresume))
 
-@track_api_call
+@_track_api_call
 def working_directory(path: str):
     api.workingDirectory = path
 
-@track_api_call
+@_track_api_call
 def onstart(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.onstart is not None:
         api.globalHooks.onstart.destroy()
     api.globalHooks.onstart = _create_hook_proxy(hook)
 
-@track_api_call
+@_track_api_call
 def oncomplete(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.oncomplete is not None:
         api.globalHooks.oncomplete.destroy()
     api.globalHooks.oncomplete = _create_hook_proxy(hook)
 
-@track_api_call
+@_track_api_call
 def onpause(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.onpause is not None:
         api.globalHooks.onpause.destroy()
     api.globalHooks.onpause = _create_hook_proxy(hook)
 
-@track_api_call
+@_track_api_call
 def onresume(hook: Optional[str] | Callable[[Task], Optional[str]]):
     if api.globalHooks.onresume is not None:
         api.globalHooks.onresume.destroy()
     api.globalHooks.onresume = _create_hook_proxy(hook)
 
-@track_api_call
+@_track_api_call
 def current_hooks() -> Hooks:
     return Hooks(api.globalHooks)
 
-@track_api_call
+@_track_api_call
 def live_preview():
     return api.livePreview()
 
-@track_api_call
+@_track_api_call
 def create_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] = None) -> list[Task]:
     hooks = None if hooks is None else hooks._hooks
     tasks = api.createTasks(prompts, mode, hooks)
     return [Task(task) for task in tasks]
 
-@track_api_call
+@_track_api_call
 def submit_tasks(prompts: list[str], mode: str = 'code', hooks: Optional[Hooks] = None) -> list[Task]:
     tasks = create_tasks(prompts, mode, hooks)
     for task in tasks:
         task.submit()
     return tasks
 
-@track_api_call
+@_track_api_call
 def pause_task_flow():
     api.pauseWorker()
 
-@track_api_call
+@_track_api_call
 def resume_task_flow():
     api.resumeWorker()
 
-@track_api_call
+@_track_api_call
 def execute_shell(command: str) -> Coroutine[None, None, Any]:
     return api.executeShell(command)
 
-@track_api_call
+
+@_track_api_call
 def develop():
     api.develop()
     return api.livePreview()
