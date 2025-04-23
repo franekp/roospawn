@@ -82,15 +82,15 @@ stateDiagram-v2
     prepared --> queued: submit()
     queued --> prepared: cancel()
     
-        classDef hook font-style:italic,stroke:#888,fill:#eee,color:#77a,font-family:monospace,font-size:9pt
-        classDef action fill:#ff8,stroke:#f88
+        classDef hook font-style:italic,font-family:monospace,font-size:9pt
+        classDef action font-family:monospace,font-size:11pt
         class onstart hook
         class onpause hook
         class onresume hook
         class oncomplete hook
         class execute_task action
 
-        execute_task: execute task
+        execute_task: ↯ execute task ↯
         onstart: «onstart»
         onpause: «onpause»
         onresume: «onresume»
