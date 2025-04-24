@@ -93,7 +93,7 @@ export async function deactivate() {
 const INITIAL_NOTEBOOK_CODE = `import roospawn as rsp
 
 last_successful_commit = (await rsp.execute_shell("git symbolic-ref --short HEAD || git rev-parse HEAD")).stdout.strip()
-if (await rsp.execute_shell("git diff-index --quiet HEAD")).exitCode != 0:
+if (await rsp.execute_shell("[[ $(git ls-files --others --modified --killed --directory | head -c1 | wc -c) -eq 0 ]]")).exitCode != 0:
     raise Exception("Working directory is not clean")
 
 @rsp.onstart
