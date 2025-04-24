@@ -65,8 +65,6 @@ def _track_api_call(func: Callable[..., T]) -> Callable[..., T]:
     
     return cast(Callable[..., T], wrapper)
 
-CommandRun = api.CommandRun
-
 class Task:
     def __init__(self, task):
         self._task = task
