@@ -4,7 +4,7 @@ import functools
 import inspect
 import pyodide
 import time
-from typing import Callable, Optional, Any, Dict, TypeVar, cast
+from typing import Any, Callable, Coroutine, Dict, Optional, TypeVar, cast
 
 
 T = TypeVar('T')
@@ -195,7 +195,7 @@ def resume_task_flow():
     api.resumeWorker()
 
 @track_api_call
-def execute_shell(command: str):
+def execute_shell(command: str) -> Coroutine[None, None, Any]:
     return api.executeShell(command)
 
 @track_api_call

@@ -51,6 +51,10 @@ export class Channel<T, Tr = void> {
         }
     }
 
+    get hasData(): boolean {
+        return this.data.length > 0;
+    }
+
     private receive(): Promise<Data<T, Tr>> {
         const data = this.data.shift();
         if (data !== undefined) {

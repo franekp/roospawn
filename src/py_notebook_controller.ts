@@ -38,7 +38,7 @@ export class PyNotebookController {
 
         const { rx, tx } = Channel.create<CellExecutionRequest>();
         this._executionRequestChannel = tx;
-        this._worker(rx);
+        this._worker(rx, () => tx.hasData);
     }
 
     private _execute(
@@ -58,7 +58,7 @@ export class PyNotebookController {
         return allExecutedPromise;
     }
 
-    private async _worker(rx: AsyncGenerator<CellExecutionRequest, void, void>) {
+    private async _worker(rx: AsyncGenerator<CellExecutionRequest, void, void>, hasData: () => boolean) {
         const notificationOptions: vscode.ProgressOptions = {
             title: 'Initializing RooSpawn kernel...',
             location: vscode.ProgressLocation.Notification,
@@ -66,11 +66,25 @@ export class PyNotebookController {
         };
         const pyodide = await vscode.window.withProgress(notificationOptions, () => this._initializePyodide());
 
+        let executeFurtherCells = true;
+
         for await (const request of rx) {
             const { cell, callback } = request;
 
-            await this._executeCell(cell, pyodide);
+            const execution = this._controller.createNotebookCellExecution(cell);
+
+            if (executeFurtherCells) {
+                executeFurtherCells = await this._executeCell(cell, execution, pyodide);
+            } else {
+                execution.start();
+                execution.end(undefined);
+            }
+
             callback();
+
+            if (!hasData()) {
+                executeFurtherCells = true;
+            }
         }
     }
 
@@ -122,58 +136,71 @@ export class PyNotebookController {
         }
     }
 
-    private async _executeCell(cell: vscode.NotebookCell, pyodide: PyodideInterface): Promise<void> {
-        const execution = this._controller.createNotebookCellExecution(cell);
-        execution.executionOrder = ++this._executionOrder;
-        const startTime = Date.now();
-        execution.start(startTime);
-
+    private async _executeCell(
+        cell: vscode.NotebookCell,
+        execution: vscode.NotebookCellExecution,
+        pyodide: PyodideInterface
+    ): Promise<boolean> {
         const output = new vscode.NotebookCellOutput([]);
         execution.replaceOutput([output]);
 
         this._current_output = output;
         this._current_execution = execution;
         
+        execution.executionOrder = ++this._executionOrder;
+        const startTime = Date.now();
+        execution.start(startTime);
         let intervalId = setInterval(() => telemetry.notebookCellExec10sElapsed(Date.now() - startTime), 10_000);
+        
+        const code = cell.document.getText();
+        telemetry.notebookCellExecStart(code);
 
-        try {
-            const code = cell.document.getText();
-            
-            telemetry.notebookCellExecStart(code);
+        const result = await this._runPythonCode(code, pyodide, execution, output);
 
-            pyodide.loadPackagesFromImports(code);
-
-            const result = await pyodide.runPythonAsync(code);
-            this._appendCellResultToOutput(result, pyodide, execution, output);
-
-            clearInterval(intervalId);
-
-            const endTime = Date.now();
-            execution.end(true, endTime);
-            
+        clearInterval(intervalId);
+        
+        const endTime = Date.now();
+        execution.end(result.success, endTime);
+        if (result.success === true) {
             telemetry.notebookCellExecSuccess(endTime - startTime);
-        } catch (error) {
-            this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
-
-            // Convert non-Error objects to Error objects
-            const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
-            filterStackFrames(errorObject);
-
-            clearInterval(intervalId);
-            
-            const endTime = Date.now();
-            execution.appendOutputItems([vscode.NotebookCellOutputItem.error(errorObject)], output);
-            execution.end(false, endTime);
-
-            const isPythonException = errorObject instanceof pyodide.ffi.PythonError;
+        } else {
+            const error = result.error;
+            const isPythonException = error instanceof pyodide.ffi.PythonError;
             if (isPythonException) {
                 telemetry.notebookCellExecException(endTime - startTime);
             } else {
                 telemetry.notebookCellExecInternalError(endTime - startTime);
             }
-        } finally {
-            this._current_output = undefined;
-            this._current_execution = undefined;
+        }
+
+        this._current_output = undefined;
+        this._current_execution = undefined;
+
+        return result.success;
+    }
+
+    private async _runPythonCode(
+        code: string,
+        pyodide: PyodideInterface,
+        execution: vscode.NotebookCellExecution,
+        output: vscode.NotebookCellOutput
+    ): Promise<{ success: true } | { success: false, error: any }> {
+        try {
+            await pyodide.loadPackagesFromImports(code);
+
+            const result = await pyodide.runPythonAsync(code);
+            this._appendCellResultToOutput(result, pyodide, execution, output);
+
+            return { success: true };
+        } catch (error) {
+            this._outputChannel.appendLine(`Execution error: ${JSON.stringify(error)}`);
+
+            const errorObject = error instanceof Error ? error : new Error(JSON.stringify(error));
+            filterStackFrames(error);
+
+            execution.appendOutputItems([vscode.NotebookCellOutputItem.error(errorObject)], output);
+
+            return { success: false, error: errorObject };
         }
     }
 
