@@ -141,15 +141,16 @@ export class PyNotebookController {
         execution: vscode.NotebookCellExecution,
         pyodide: PyodideInterface
     ): Promise<boolean> {
+        execution.executionOrder = ++this._executionOrder;
+        const startTime = Date.now();
+        execution.start(startTime);
+
         const output = new vscode.NotebookCellOutput([]);
         execution.replaceOutput([output]);
 
         this._current_output = output;
         this._current_execution = execution;
         
-        execution.executionOrder = ++this._executionOrder;
-        const startTime = Date.now();
-        execution.start(startTime);
         let intervalId = setInterval(() => telemetry.notebookCellExec10sElapsed(Date.now() - startTime), 10_000);
         
         const code = cell.document.getText();
@@ -158,6 +159,9 @@ export class PyNotebookController {
         const result = await this._runPythonCode(code, pyodide, execution, output);
 
         clearInterval(intervalId);
+
+        this._current_output = undefined;
+        this._current_execution = undefined;
         
         const endTime = Date.now();
         execution.end(result.success, endTime);
@@ -172,9 +176,6 @@ export class PyNotebookController {
                 telemetry.notebookCellExecInternalError(endTime - startTime);
             }
         }
-
-        this._current_output = undefined;
-        this._current_execution = undefined;
 
         return result.success;
     }
