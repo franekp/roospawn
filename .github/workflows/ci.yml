@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        roocode-version: ["3.14.0", "3.14.1", "3.14.2"]
+    steps:
+      - name: Install headless X server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build
+        run: yarn run compile
+      - name: Run tests
+        run: xvfb-run --auto-servernum --server-args='-screen 0 1920x1080x24' yarn run test
+        env:
+          ROOCODE_VERSION: ${{ matrix.roocode-version }}
