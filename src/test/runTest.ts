@@ -12,7 +12,7 @@ async function main() {
     // Passed to --extensionTestsPath
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
-    await runVSCodeCommand(['--install-extension', path.resolve(__dirname, '../../roo-cline-3.9.2.vsix')]);
+    await runVSCodeCommand(['--install-extension', 'RooVeterinaryInc.roo-cline@3.14.2']);
     // Download VS Code, unzip it and run the integration test
     await runTests({ extensionDevelopmentPath, extensionTestsPath });
   } catch (err) {
