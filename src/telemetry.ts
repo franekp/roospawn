@@ -29,8 +29,12 @@ export class TelemetryCollector {
 
         TelemetryCollector.instance = this;
 
-        context.subscriptions.push(vscode.env.onDidChangeTelemetryEnabled(enabled => this.handleTelemetryEnabledChange(enabled)));
-        this.handleTelemetryEnabledChange(vscode.env.isTelemetryEnabled);
+        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration("roospawn.telemetry.enabled")) {
+                this.handleTelemetryEnabledChange();
+            }
+        }));
+        this.handleTelemetryEnabledChange();
     }
 
     static async init(context: vscode.ExtensionContext) {
@@ -70,7 +74,8 @@ export class TelemetryCollector {
         posthog.capture({ distinctId: instance.distinctId, event, properties });
     }
 
-    private handleTelemetryEnabledChange(enabled: boolean) {
+    private handleTelemetryEnabledChange() {
+        const enabled = vscode.workspace.getConfiguration('roospawn.telemetry').get('enabled');
         if (this.posthog === undefined && enabled) {
             this.initPosthog();
         } else if (this.posthog !== undefined && !enabled) {

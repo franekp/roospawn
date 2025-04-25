@@ -43,7 +43,18 @@
         ],
         "requiresMessaging": "always"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "RooSpawn",
+      "type": "object",
+      "properties": {
+        "roospawn.telemetry.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable telemetry to help us improve the extension"
+        }
+      }
+    }
   },
   "extensionDependencies": [
     "rooveterinaryinc.roo-cline"
