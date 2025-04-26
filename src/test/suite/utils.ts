@@ -30,7 +30,7 @@ export interface RooSpawnInitializationResult {
     startTask: (prompt: string, mode: string) => Promise<void>;
 }
 
-export function assertMessage(message: Message | void, expected: Message) {
+export function assertMessage(message: Message | void, expected: Message, checkText?: (text: string) => boolean) {
     if (message !== null && typeof message === 'object') {
         switch (expected.type) {
             case 'say':
@@ -40,6 +40,9 @@ export function assertMessage(message: Message | void, expected: Message) {
                 assert.equal(message.say, expected.say);
                 if (expected.text !== undefined) {
                     assert.equal(message.text, expected.text);
+                }
+                if (checkText !== undefined) {
+                    assert.isTrue(checkText(message.text));
                 }
                 if (expected.images !== undefined) {
                     assert.deepEqual(message.images, expected.images);
@@ -52,6 +55,9 @@ export function assertMessage(message: Message | void, expected: Message) {
                 assert.equal(message.ask, expected.ask);
                 if (expected.text !== undefined) {
                     assert.equal(message.text, expected.text);
+                }
+                if (checkText !== undefined) {
+                    assert.isTrue(checkText(message.text));
                 }
                 break;
             case 'status':

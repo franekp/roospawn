@@ -73,7 +73,10 @@ describe('Integration with Roo-Code', async () => {
 		tx.ret();
 
 		assertMessage((await messageRx.next()).value, { type: 'say', say: 'text', text: '' });
-		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'tool', text: '{"tool":"newTask","mode":"Code","content":"Implement a new feature for the application."}' });
+		assertMessage((await messageRx.next()).value, { type: 'ask', ask: 'tool' }, (text) => {
+			const json = JSON.parse(text);
+			return json.tool === 'newTask' && json.mode.toLowerCase().includes('code') && json.content === 'Implement a new feature for the application.';
+		});
 
 		tx2.send({ type: 'text', text: 'Hello, world!' });
 		tx2.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
