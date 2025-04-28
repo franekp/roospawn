@@ -188,7 +188,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         while (this.api.getCurrentTaskStack().length > 0) {
             const taskId = this.api.getCurrentTaskStack()[this.api.getCurrentTaskStack().length - 1];
             this.log?.appendLine(`Aborting task ${taskId}`);
-            this.api.clearCurrentTask();
+            await this.api.clearCurrentTask();
             this.log?.appendLine(`Task ${taskId} aborted`);
         }
     }
@@ -213,7 +213,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         const rooCodeTask = this.rooCodeTasks.get(taskId);
         if (rooCodeTask === undefined) {
             this.log?.appendLine(`[handleMessage] Unknown task ${taskId}`);
-            throw new Error(`Unknown task ${taskId}`);
+            return;
         } else {
             const postMessage = (message: Message | (() => Message)) => {
                 this.log?.appendLine(`[handleMessage] Posting message to task ${rooCodeTask.rootTaskId} of type ${rooCodeTask.type}`);
@@ -224,8 +224,8 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
                 }
             };
 
-            const userFeedback = message.type === 'say' && message.say === 'user_feedback';
-            if (userFeedback) {
+            const isUserFeedbackMessage = message.type === 'say' && message.say === 'user_feedback';
+            if (isUserFeedbackMessage) {
                 this.emitRootTaskStarted(taskId);
             }
 

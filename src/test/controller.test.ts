@@ -7,6 +7,7 @@ import { IClineController, Message } from '../cline_controller';
 import { assertMessage, initializeRooSpawn, tf } from './suite/utils';
 import { Cursor, EventsCollector } from './suite/events_collector';
 import { assert } from 'chai';
+import { timeout } from '../async_utils';
 
 describe('Integration with Roo-Code', async () => {
 	let rooSpawn: RooSpawnExtension.RooSpawn;
@@ -22,6 +23,12 @@ describe('Integration with Roo-Code', async () => {
 
 	afterEach(async () => {
 		await rooSpawn.clineController.abortTaskStack();
+		// The fake AI is already disposed, so set some other provider so that
+		// Roo-Code can use it to e.g. display model info.
+		await rooCode.setConfiguration({
+			apiProvider: 'human-relay'
+		});
+		await timeout(500);
 	});
 
 	it('Simple task test', tf(async (fail) => {
@@ -30,6 +37,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const tx = fakeAi.handlersManager.add();
@@ -58,6 +68,9 @@ describe('Integration with Roo-Code', async () => {
 			autoApprovalEnabled: true,
 			alwaysAllowSubtasks: true,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const tx = fakeAi.handlersManager.add();
@@ -108,6 +121,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const task1 = new RooSpawnExtension.Task('test', 'code');
@@ -127,6 +143,9 @@ describe('Integration with Roo-Code', async () => {
 			autoApprovalEnabled: true,
 			alwaysAllowSubtasks: true,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -172,6 +191,9 @@ describe('Integration with Roo-Code', async () => {
 			autoApprovalEnabled: true,
 			alwaysAllowSubtasks: true,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -219,6 +241,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -253,6 +278,9 @@ describe('Integration with Roo-Code', async () => {
 			autoApprovalEnabled: true,
 			alwaysAllowSubtasks: true,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -292,6 +320,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -325,6 +356,9 @@ describe('Integration with Roo-Code', async () => {
 			autoApprovalEnabled: true,
 			alwaysAllowSubtasks: true,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -364,6 +398,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		let resolve: () => void = () => {};
@@ -396,6 +433,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -440,6 +480,9 @@ describe('Integration with Roo-Code', async () => {
 			apiProvider: 'fake-ai',
 			fakeAi: fakeAi,
 		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
 		const controller: IClineController = rooSpawn.clineController;
 
 		const eventsCollector = new EventsCollector(controller);
@@ -473,6 +516,44 @@ describe('Integration with Roo-Code', async () => {
 		const rootTaskEndedEvent2 = await cursor.waitFor((event) => event.type === 'rootTaskStarted' || event.type === 'rootTaskEnded');
 		assert(rootTaskEndedEvent2.type === 'rootTaskEnded');
 
+		eventsCollector.dispose();
+		fakeAi.dispose();
+	}));
+
+	it('When user clicks "Cancel" button, the task is aborted and resumed within 3 seconds', tf(async (fail) => {
+		const fakeAi = new FakeAi(() => fail("Unhandled query"));
+		await rooCode.setConfiguration({
+			apiProvider: 'fake-ai',
+			fakeAi: fakeAi,
+		});
+		// Wait a little so that the configuration is updated in background,
+		// and subtasks will use the new configuration instead of the old one.
+		await timeout(100);
+		const controller: IClineController = rooSpawn.clineController;
+
+		const eventsCollector = new EventsCollector(controller);
+		const cursor = new Cursor(eventsCollector);
+
+		const tx1 = fakeAi.handlersManager.add();
+		// Handler for the resumed task
+		fakeAi.handlersManager.add();
+
+		const task1 = new RooSpawnExtension.Task('test', 'code');
+		const rx1 = await controller.startTask(task1);
+		eventsCollector.addMessagesRx(rx1, 'rx1', () => task1.tx.send({ type: 'exitMessageHandler' }));
+
+		tx1.send({ type: 'text', text: 'The beginning of the task...'});
+
+		await timeout(1000);
+		await rooCode.pressSecondaryButton();
+
+		tx1.ret();
+
+		await cursor.waitFor(event => event.type === 'rootTaskEnded');
+
+		const timeoutResult = await timeout(3000, cursor.waitFor(event => event.type === 'rootTaskStarted'));
+		assert(timeoutResult.reason === 'promise');
+		
 		eventsCollector.dispose();
 		fakeAi.dispose();
 	}));
