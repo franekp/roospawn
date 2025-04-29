@@ -520,7 +520,7 @@ describe('Integration with Roo-Code', async () => {
 		fakeAi.dispose();
 	}));
 
-	it('When user clicks "Cancel" button, the task is aborted and resumed within 3 seconds', tf(async (fail) => {
+	it('When user clicks "Cancel" button, the task is aborted, resumed and then other tasks are not killed', tf(async (fail) => {
 		const fakeAi = new FakeAi(() => fail("Unhandled query"));
 		await rooCode.setConfiguration({
 			apiProvider: 'fake-ai',
@@ -535,16 +535,13 @@ describe('Integration with Roo-Code', async () => {
 		const cursor = new Cursor(eventsCollector);
 
 		const tx1 = fakeAi.handlersManager.add();
-		// Handler for the resumed task
-		fakeAi.handlersManager.add();
-
 		const task1 = new RooSpawnExtension.Task('test', 'code');
 		const rx1 = await controller.startTask(task1);
 		eventsCollector.addMessagesRx(rx1, 'rx1', () => task1.tx.send({ type: 'exitMessageHandler' }));
 
 		tx1.send({ type: 'text', text: 'The beginning of the task...'});
 
-		await timeout(1000);
+		await timeout(500);
 		await rooCode.pressSecondaryButton();
 
 		tx1.ret();
@@ -553,6 +550,27 @@ describe('Integration with Roo-Code', async () => {
 
 		const timeoutResult = await timeout(3000, cursor.waitFor(event => event.type === 'rootTaskStarted'));
 		assert(timeoutResult.reason === 'promise');
+
+		await timeout(500);
+		await controller.abortTaskStack();
+
+		await timeout(500);
+
+		const tx2 = fakeAi.handlersManager.add();
+		const task2 = new RooSpawnExtension.Task('test2', 'code');
+		const rx2 = await controller.startTask(task2);
+		eventsCollector.addMessagesRx(rx2, 'rx2', () => task2.tx.send({ type: 'exitMessageHandler' }));
+
+		tx2.send({ type: 'text', text: 'The beginning of the task...'});
+
+		await timeout(4000);
+
+		tx2.send({ type: 'text', text: '<attempt_completion><result>Hello</result></attempt_completion>' });
+		tx2.ret();
+
+		const event = await cursor.waitFor((event) => event.type === 'message' && event.message.type === 'status');
+		assert(event.type === 'message' && event.message.type === 'status');
+		assert.equal(event.message.status, 'completed');
 		
 		eventsCollector.dispose();
 		fakeAi.dispose();
