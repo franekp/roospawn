@@ -76,6 +76,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
     
     private log: vscode.OutputChannel | undefined;
     private _isBusy: boolean;
+    private messageReceiver: MessageReceiver = new MessageReceiver();
 
     // This is set before `startNewTask` or `resumeTask` is called,
     // and used inside `handleTaskStarted` to create a RooCodeTask
@@ -86,7 +87,7 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
         super();
 
         // attach events to the API
-        this.api.on('message', ({ taskId, message }) => this.handleMessage(taskId, message));
+        this.api.on('message', ({ taskId, message }) => this.onMessageEvent(taskId, message));
         this.api.on('taskCreated', (taskId) => this.handleTaskCreated(taskId));
         this.api.on('taskSpawned', (taskId, childTaskId) => this.handleTaskSpawned(taskId, childTaskId));
         this.api.on('taskAskResponded', (taskId) => this.handleTaskAskResponded(taskId));
@@ -200,6 +201,16 @@ export class ClineController extends EventEmitter<ControllerEvents> implements I
     async waitForAddingTaskToStack(clineTaskId: string): Promise<void> {
         while (!this.api.getCurrentTaskStack().includes(clineTaskId)) {
             await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
+    private onMessageEvent(taskId: string, message: ClineMessage) {
+        // Roo-Code modifies the message object in place, so we need to create a copy,
+        // so that Roo-Code cannot modify the messages in our data structures.
+        const messageCopy = Object.assign({}, message);
+        const messages = this.messageReceiver.process(taskId, messageCopy);
+        for (const message of messages) {
+            this.handleMessage(taskId, message);
         }
     }
 
@@ -335,5 +346,40 @@ function clineMessageToMessage(message: ClineMessage): Message {
             return { type: 'say', say: message.say!, text: message.text, images: message.images };
         case 'ask':
             return { type: 'ask', ask: message.ask!, text: message.text };
+    }
+}
+
+/**
+ * Sometimes messages can arrive in the wring order. Fortunatelly, when we look
+ * at the first arrival of each message, the order is correct.
+ * 
+ * This class is used to emit only the final version of the message in the correct order.
+ */
+class MessageReceiver {
+    private queues: Map<string, ClineMessage[]> = new Map();
+
+    public process(taskId: string, message: ClineMessage): ClineMessage[] {
+        let queue = this.queues.get(taskId);
+        if (queue === undefined) {
+            queue = [];
+            this.queues.set(taskId, queue);
+        }
+
+        let msgIdx = queue.findIndex(m => m.ts === message.ts);
+        if (msgIdx === -1) {
+            queue.push(message);
+            msgIdx = queue.length - 1;
+        } else {
+            queue[msgIdx] = message;
+        }
+
+        let firstPartialIdx = queue.findIndex(m => m.partial);
+        if (firstPartialIdx === -1) {
+            const result = queue;
+            this.queues.delete(taskId);
+            return result;
+        } else {
+            return queue.splice(0, firstPartialIdx);
+        }
     }
 }

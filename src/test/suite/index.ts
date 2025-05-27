@@ -1,12 +1,14 @@
 import * as path from 'path';
-import * as fs from 'fs';
 import Mocha from 'mocha';
-import { glob } from 'glob';
 
 import * as chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import { compareVersions } from 'compare-versions';
 
 chai.use(chaiAsPromised);
+
+// Versions must be sorted in ascending order.
+const TEST_BASE_VERSIONS = ['3.14.0', '3.15.4', '3.17.0', '3.17.2'];
 
 export function run(): Promise<void> {
   // Create the mocha test
@@ -19,27 +21,35 @@ export function run(): Promise<void> {
 
   const testsRoot = path.resolve(__dirname, '..');
 
-  return new Promise((c, e) => {
-    glob('**/**.test.js', { cwd: testsRoot })
-      .then(files => {
-        // Add files to the test suite
-        files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+  const version = process.env.ROOCODE_VERSION;
+  if (!version) {
+    throw new Error('ROOCODE_VERSION is not set');
+  }
 
-        try {
-          // Run the mocha test
-          mocha.run(failures => {
-            if (failures > 0) {
-              e(new Error(`${failures} tests failed.`));
-            } else {
-              c();
-            }
-          });
-        } catch (err) {
-          e(err);
+  return new Promise((c, e) => {  
+    try {
+      const testFileVersion = getTestFileVersion(version);
+      mocha.addFile(path.resolve(testsRoot, `controller-${testFileVersion}.test.js`));
+
+      // Run the mocha test
+      mocha.run(failures => {
+        if (failures > 0) {
+          e(new Error(`${failures} tests failed.`));
+        } else {
+          c();
         }
-      })
-      .catch(err => {
-        return e(err);
       });
+    } catch (err) {
+      e(err);
+    }
   });
+}
+
+function getTestFileVersion(version: string): string {
+  for (const minVer of TEST_BASE_VERSIONS.slice().reverse()) {
+    if (compareVersions(version, minVer) >= 0) {
+      return minVer;
+    }
+  }
+  throw new Error('Unsupported RooCode version: ' + version);
 }

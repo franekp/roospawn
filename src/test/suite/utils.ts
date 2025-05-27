@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { RooSpawn } from "../../roospawn";
 import { assert } from 'chai';
 import { Message } from '../../cline_controller';
+import { isDeepStrictEqual } from 'util';
 
 export async function initializeRooSpawn(): Promise<RooSpawnInitializationResult> {
     const rooSpawnExtension = vscode.extensions.getExtension('roospawn.roospawn');
@@ -31,52 +32,88 @@ export interface RooSpawnInitializationResult {
 }
 
 export function assertMessage(message: Message | void, expected: Message, checkText?: (text: string) => boolean) {
+    if (!messageMatches(message, expected, checkText)) {
+        assert.fail(`Message mismatch (actual, expected)\n${JSON.stringify(message, null, 2)}\n${JSON.stringify(expected, null, 2)}`);
+    }
+}
+
+function messageMatches(message: Message | void, expected: Message, checkText?: (text: string) => boolean): boolean {
     if (message !== null && typeof message === 'object') {
         switch (expected.type) {
             case 'say':
                 if (message.type !== 'say') {
-                    assert.fail('Expected say message, but got ' + message.type);
+                    return false;
                 }
-                assert.equal(message.say, expected.say);
+                if (message.say !== expected.say) {
+                    return false;
+                }
                 if (expected.text !== undefined) {
-                    assert.equal(message.text, expected.text);
+                    if (message.text !== expected.text) {
+                        return false;
+                    }
                 }
                 if (checkText !== undefined) {
-                    assert.isTrue(checkText(message.text));
+                    if (!checkText(message.text)) {
+                        return false;
+                    }
                 }
                 if (expected.images !== undefined) {
-                    assert.deepEqual(message.images, expected.images);
+                    if (!isDeepStrictEqual(message.images, expected.images)) {
+                        return false;
+                    }
                 }
                 break;
             case 'ask':
                 if (message.type !== 'ask') {
-                    assert.fail('Expected ask message, but got ' + message.type);
+                    return false;
                 }
-                assert.equal(message.ask, expected.ask);
+                if (message.ask !== expected.ask) {
+                    return false;
+                }
                 if (expected.text !== undefined) {
-                    assert.equal(message.text, expected.text);
+                    if (message.text !== expected.text) {
+                        return false;
+                    }
                 }
                 if (checkText !== undefined) {
-                    assert.isTrue(checkText(message.text));
+                    if (!checkText(message.text)) {
+                        return false;
+                    }
                 }
                 break;
             case 'status':
                 if (message.type !== 'status') {
-                    assert.fail('Expected status message, but got ' + message.type);
+                    return false;
                 }
-                assert.equal(message.status, expected.status);
+                if (message.status !== expected.status) {
+                    return false;
+                }
                 break;
             case 'exitMessageHandler':
                 if (message.type !== 'exitMessageHandler') {
-                    assert.fail('Expected exitMessageHandler message, but got ' + message.type);
+                    return false;
                 }
                 break;
         }
     } else {
-        assert.fail('Message is undefined');
+        return false;
     }
+    return true;
 }
 
+/**
+ * A wrapper for test functions that allows to have both: callback- and
+ * returned-promise-based error reporting.
+ * 
+ * Usage:
+ * 
+ * ```ts
+ * it('test', tf(async (fail) => {
+ *     // Call fail(...) or throw an error to fail the test.
+ *     ...
+ * }))
+ * ```
+ */
 export function tf(func: (fail: (message: string) => void) => Promise<void>): (done: (err: any) => void) => void {
     return (done) => {
         Promise.resolve()
