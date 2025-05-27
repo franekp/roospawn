@@ -155,8 +155,9 @@ describe('Integration with Roo-Code', async () => {
         const messageRx = await controller.startTask(task1);
         eventsCollector.addMessagesRx(messageRx, 'messages', () => task1.tx.send({ type: 'exitMessageHandler' }));
 
-        tx.send({ type: 'text', text: 'Hello, world!' });
-        tx.ret();
+        // The opening `<attempt_completion>` tag triggers emission of the say-text message,
+        // without emitting the `<attempt_completion>` message.
+        tx.send({ type: 'text', text: 'Hello, world!<attempt_completion><result>' });
 
         await cursor.waitFor((event) =>
             event.type === 'message'
@@ -207,8 +208,9 @@ describe('Integration with Roo-Code', async () => {
         tx.send({ type: 'text', text: '<new_task><mode>code</mode><message>Implement a new feature for the application.</message></new_task>' });
         tx.ret();
 
-        tx2.send({ type: 'text', text: 'Hello, world!' });
-        tx2.ret();
+        // The opening `<attempt_completion>` tag triggers emission of the say-text message,
+        // without emitting the `<attempt_completion>` message.
+        tx2.send({ type: 'text', text: 'Hello, world!<attempt_completion><result>' });
 
         await cursor.waitFor((event) =>
             event.type === 'message'
