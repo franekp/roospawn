@@ -9,6 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 8
       matrix:
         roocode-version: [
           "3.14.0", "3.14.1", "3.14.2", "3.14.3",
