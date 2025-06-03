@@ -220,6 +220,11 @@ describe('Integration with Roo-Code', async () => {
                 && event.message.say === 'text'
                 && event.message.text === 'Hello, world!'
         );
+
+        // Roo-Code might be very quick and resume parent task before we abort it.
+        // Thus prepare a response for this case...
+        const tx3 = fakeAi.handlersManager.add();
+        tx3.send({ type: 'text', text: 'Why do you abort my tasks?...' });
         
         await controller.abortTaskStack();
 
